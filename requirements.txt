@@ -1,0 +1,11 @@
+matplotlib==3.5.2
+numpy==1.22.4
+pandas==1.4.3
+notebook==6.4.12
+openpyxl==3.0.10
+seaborn==0.11.2
+pyyaml==6.0
+researchpy==0.3.2
+scikit-learn==1.2.1
+scikit-survival==0.22.2
+rpy2==3.5.12
