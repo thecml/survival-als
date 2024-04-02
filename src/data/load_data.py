@@ -1,16 +1,18 @@
 import config as cfg
 from pathlib import Path
 import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
 
 if __name__ == '__main__':
     # Load data
-    path = cfg.DATA_DIR
     patient_filename = "Final_Data_sheet_July2023_HenkJan.xlsx"
     survival_filename = "Survival_Jan2024.xlsx"
-    patient_df = pd.read_excel(Path.joinpath(path, patient_filename), engine='openpyxl', date_format="%d/%m/%Y")
-    survival_df = pd.read_excel(Path.joinpath(path, survival_filename), engine='openpyxl', date_format="%d/%m/%Y")
+    patient_df = pd.read_excel(Path.joinpath(cfg.DATA_DIR, patient_filename), engine='openpyxl', date_format="%d/%m/%Y")
+    survival_df = pd.read_excel(Path.joinpath(cfg.DATA_DIR, survival_filename), engine='openpyxl', date_format="%d/%m/%Y")
     
-    # Clean data
+    
     patient_df = patient_df.loc[patient_df['Patient or Control'] == 'Patient'] # only use patients
     patient_df = patient_df[patient_df['Visit_Date'].notna()]
     patient_df['PSCID'] = patient_df['PSCID'].str.strip()
@@ -18,41 +20,63 @@ if __name__ == '__main__':
     survival_df = survival_df.rename({'SUBJECT ID': 'PSCID'}, axis=1)
     
     df = patient_df.merge(survival_df, on=['PSCID']) # Merge the two datasets
-    df = df[cfg.PATIENT_COLS + cfg.SURVIVAL_COLS] # Select relevant features
+    df = df[cfg.PATIENT_COLS + cfg.SURVIVAL_COLS + cfg.ALSFRS_COLS
+            + cfg.TAP_COLS + cfg.UMN_COLS] # Select relevant features
+    
+    # Convert empty strings to NaN
+    df['UMN_Right'] = df['UMN_Right'].replace(to_replace=' ', value=np.nan, regex=True)
+    df['UMN_Left'] = df['UMN_Left'].replace(to_replace=' ', value=np.nan, regex=True)
+    
+    # Drop rows without ALSFRS
+    df = df[df['ALSFRS_Date'].notna()].copy(deep=True)
+    
+    # Sort by ID and Label
+    df = df.sort_values(by=['PSCID', 'Visit Label']).reset_index(drop=True)
     
     # Repeat constant values
-    diagnosis = df.groupby('PSCID')['Diagnosis'].apply(lambda x: x.bfill().ffill()).droplevel(level=1)
-    sex = df.groupby('PSCID')['Sex'].apply(lambda x: x.bfill().ffill()).droplevel(level=1)
-    age = df.groupby('PSCID')['Age'].apply(lambda x: x.bfill().ffill()).droplevel(level=1)
-    df = df.join(pd.concat([diagnosis, sex, age], axis=1), on='PSCID', rsuffix='_r').drop_duplicates(subset=['PSCID', 'Visit Label'])
-    df = df.drop(['Diagnosis', 'Age', 'Sex'], axis=1).rename({'Diagnosis_r':'Diagnosis', 'Sex_r': 'Sex', 'Age_r': 'Age'}, axis=1)
-    
+    constant_cols = ['Handedness', 'YearsEd', 'Diagnosis', 'Sex', 'Age', 'SymptomOnset_Date', 'Region_of_Onset']
+    for col in constant_cols:
+        new_col = df.groupby('PSCID')[col].apply(lambda x: x.bfill().ffill()).droplevel(level=1)
+        df = df.join(new_col, on='PSCID', rsuffix='_r').drop_duplicates(subset=['PSCID', 'Visit Label'])
+        df = df.drop(col, axis=1).rename({f'{col}_r': f'{col}'}, axis=1)
+        
+    # Use only observations from ALS patients
+    df = df.loc[df['Diagnosis'] == 'ALS']
+        
     # Convert types
     df['Age'] = df['Age'].astype(int)
-    df['Visit_Date'] = pd.to_datetime(df['Visit_Date'], format="%d/%m/%Y")
-    df['Date of death'] = pd.to_datetime(df['Date of death'], format="%d/%m/%Y")
+    df['Visit_Date'] = pd.to_datetime(df['Visit_Date'], format="%Y-%m-%d")
+    df['SymptomOnset_Date'] = pd.to_datetime(df['SymptomOnset_Date'], format="%Y-%m-%d")
+    df['Date of death'] = pd.to_datetime(df['Date of death'], format="%Y-%m-%d", errors='coerce')
+    df['ALSFRS_Date'] = pd.to_datetime(df['ALSFRS_Date'], format="%Y-%m-%d")
+    df['UMN_Right'] = df['UMN_Right'].astype('Int64')
+    df['UMN_Left'] = df['UMN_Left'].astype('Int64')
     
-    # Assign event (baseline = dead)
-    df['Event'] = df['Status'].apply(lambda x: 1 if x == 'Deceased' else 0)
-    df.loc[df['Event'] == 1, 'Time'] = (df['Date of death'] - df['Visit_Date']).dt.days
+    # Calculate days between visitations
+    df['Visit_Diff'] = df.groupby(['PSCID'])['Visit_Date'].diff().dt.days.fillna(0).astype(int)
     
-    #patient_df = patient_df[patient_df['PSCID'].isin(survival_df['SUBJECT ID'])] # selct only those we have survival data on
+    # Calculate number of days with symptoms
+    df['SymptomDays'] = (df['Visit_Date'] - df['SymptomOnset_Date']).dt.days
     
+    # Calculate disease progression rate
+    df['DiseaseProgressionRate'] = (48 - df['ALSFRS_TotalScore']) / (df['SymptomDays']/30)
+            
+    # Annotate events
+    alsfrs_cols = ['ALSFRS_1_Speech', 'ALSFRS_3_Swallowing', 'ALSFRS_4_Handwriting', 'ALSFRS_8_Walking']
+    threshold = 2
+    for col in alsfrs_cols:
+        df[f'Event_{col}'] = (df[col] <= threshold).astype(int)
+        df[f'Event_{col}'] = df.groupby('PSCID')[f'Event_{col}'].shift(-1)
+    df['TTE'] = df.groupby('PSCID')['Visit_Diff'].shift(-1)
     
-    print(0)
+    # Use only visit 1 and 2
+    df = df[df['Visit Label'].isin(['Visit 1', 'Visit 2'])]
     
-    # Clean the survival data
+    # Drop NA TTE's
+    df = df.dropna(subset=['TTE'])
     
+    df = df.reset_index(drop=True)
     
-    # Select columns
-
-    
-
-
-    
-    
-    
-    
-    
-    
+    # Save data
+    df.to_csv(f'{cfg.DATA_DIR}/data.csv')
     
