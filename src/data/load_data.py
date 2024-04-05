@@ -12,7 +12,6 @@ if __name__ == '__main__':
     patient_df = pd.read_excel(Path.joinpath(cfg.DATA_DIR, patient_filename), engine='openpyxl', date_format="%d/%m/%Y")
     survival_df = pd.read_excel(Path.joinpath(cfg.DATA_DIR, survival_filename), engine='openpyxl', date_format="%d/%m/%Y")
     
-    
     patient_df = patient_df.loc[patient_df['Patient or Control'] == 'Patient'] # only use patients
     patient_df = patient_df[patient_df['Visit_Date'].notna()]
     patient_df['PSCID'] = patient_df['PSCID'].str.strip()
@@ -42,6 +41,10 @@ if __name__ == '__main__':
         
     # Use only observations from ALS patients
     df = df.loc[df['Diagnosis'] == 'ALS']
+    
+    # Do som replacing
+    df['Region_of_Onset'] = df['Region_of_Onset'].str.replace('{@}', '_')
+    df['Region_of_Onset'] = df['Region_of_Onset'].replace('not_available', None)
         
     # Convert types
     df['Age'] = df['Age'].astype(int)
@@ -60,23 +63,35 @@ if __name__ == '__main__':
     
     # Calculate disease progression rate
     df['DiseaseProgressionRate'] = (48 - df['ALSFRS_TotalScore']) / (df['SymptomDays']/30)
+
+    # Use only visit 1 and 2
+    #df = df[df['Visit Label'].isin(['Visit 1', 'Visit 2'])]
             
     # Annotate events
-    alsfrs_cols = ['ALSFRS_1_Speech', 'ALSFRS_3_Swallowing', 'ALSFRS_4_Handwriting', 'ALSFRS_8_Walking']
+    event_names = ['speech', 'swallowing', 'handwriting', 'walking']
+    event_cols = ['ALSFRS_1_Speech', 'ALSFRS_3_Swallowing', 'ALSFRS_4_Handwriting', 'ALSFRS_8_Walking']
     threshold = 2
-    for col in alsfrs_cols:
-        df[f'Event_{col}'] = (df[col] <= threshold).astype(int)
-        df[f'Event_{col}'] = df.groupby('PSCID')[f'Event_{col}'].shift(-1)
-    df['TTE'] = df.groupby('PSCID')['Visit_Diff'].shift(-1)
+    for event_name, event_col in zip(event_names, event_cols):
+        event_df = df.copy(deep=True)
+
+        # Assess threshold
+        event_df[f'Event_{event_col}'] = (event_df[event_col] <= threshold).astype(int)
+        
+        # Remove patients that have the event on first visit
+        left_censored = event_df.loc[(event_df['Visit Label'] == 'Visit 1') \
+                                     & (event_df[f'Event_{event_col}'] == 1)]['PSCID']
+        event_df = event_df.loc[~event_df['PSCID'].isin(left_censored)]
+        
+        # Adjust event indicator and time
+        event_df[f'Event_{event_col}'] = event_df.groupby('PSCID')[f'Event_{event_col}'].shift(-1)
+        event_df['TTE'] = event_df.groupby('PSCID')['Visit_Diff'].shift(-1)
+        
+        # Use only first visit
+        #event_df = event_df.loc[event_df['Visit Label'] == 'Visit 1']
+        
+        # Drop NA and reset index
+        event_df = event_df.dropna(subset='TTE').reset_index(drop=True)
     
-    # Use only visit 1 and 2
-    df = df[df['Visit Label'].isin(['Visit 1', 'Visit 2'])]
-    
-    # Drop NA TTE's
-    df = df.dropna(subset=['TTE'])
-    
-    df = df.reset_index(drop=True)
-    
-    # Save data
-    df.to_csv(f'{cfg.DATA_DIR}/data.csv')
+        # Save data
+        event_df.to_csv(f'{cfg.DATA_DIR}/data_{event_name}.csv')
     

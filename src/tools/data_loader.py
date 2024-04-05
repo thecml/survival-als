@@ -50,16 +50,17 @@ class DataLoader():
         This method loads and prepares the data for modeling
         event = {Speech, Swallowing, Handwriting, Walking}
         """
-        path = Path.joinpath(cfg.DATA_DIR, "data.csv")
-        df = pd.read_csv(path, index_col=0)
-        
         if event == "Speech":
+            df = pd.read_csv(Path.joinpath(cfg.DATA_DIR, f"data_speech.csv"), index_col=0)
             y_label = "Event_ALSFRS_1_Speech"
         elif event == "Swallowing":
+            df = pd.read_csv(Path.joinpath(cfg.DATA_DIR, f"data_swallowing.csv"), index_col=0)
             y_label = "Event_ALSFRS_3_Swallowing"
         elif event == "Handwriting":
+            df = pd.read_csv(Path.joinpath(cfg.DATA_DIR, f"data_handwriting.csv"), index_col=0)
             y_label = "Event_ALSFRS_4_Handwriting"
         elif event == "Walking":
+            df = pd.read_csv(Path.joinpath(cfg.DATA_DIR, f"data_walking.csv"), index_col=0)
             y_label = "Event_ALSFRS_8_Walking"
         else:
             raise ValueError("Invalid event, please select {Speech, Swallowing, Handwriting, Walking}")

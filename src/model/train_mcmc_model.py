@@ -10,11 +10,12 @@ from utility.mcmc import sample_hmc
 from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 from sksurv.metrics import concordance_index_censored
-from utility.survival import split_time_event, make_stratified_split, convert_to_structured
+from utility.survival import split_time_event, make_stratified_split, convert_to_structured, calculate_event_times
 import seaborn as sns
 from utility.plot import _TFColor
 from matplotlib.lines import Line2D
 from pathlib import Path
+from utility.training import scale_data
 
 TFColor = _TFColor()
 
@@ -26,35 +27,27 @@ N_CHAINS = 1
 
 if __name__ == "__main__":
     # Load data
-    event = "Walking"
-    covariate = 'Region_of_Onset'
+    dl = DataLoader().load_data(event="Walking")
+    num_features, cat_features = dl.get_features()
+    df = dl.get_data()
     
-    df = DataLoader().load_data(event=event).get_data()
-    df = df.dropna(subset=covariate) # drop na for now
-
     # Split data in train/test sets
-    df_train, _, df_test = make_stratified_split(df, stratify_colname='both', frac_train=0.7,
-                                                 frac_valid=0, frac_test=0.3, random_state=0)
-    X_train = np.array((df_train['Region_of_Onset'] == 'lower_extremity').astype(int)).reshape(-1, 1) # df_train[[covariate]]
-    X_test = np.array((df_test['Region_of_Onset'] == 'lower_extremity').astype(int)).reshape(-1, 1) # df_test[[covariate]]
+    df_train, _, df_test = make_stratified_split(df, stratify_colname='both', frac_train=0.8,
+                                                 frac_valid=0, frac_test=0.2, random_state=0)
+    X_train = df_train[cat_features+num_features]
+    X_test = df_test[cat_features+num_features]
     y_train = convert_to_structured(df_train["time"], df_train["event"])
     y_test = convert_to_structured(df_test["time"], df_test["event"])
 
+    # Scale data
+    X_train, X_test = scale_data(X_train, X_test, cat_features, num_features)
+
     # Split data in train/test sets
-    t_train, e_train = split_time_event(y_train)
+    t_train, e_train = split_time_event(y_train) 
     t_test, e_test = split_time_event(y_test)
     
-    # Scale data
-    #scaler = StandardScaler()
-    #X_train = scaler.fit_transform(X_train)
-    #X_test = scaler.transform(X_test)
-    
-    #X_train = X_train.to_numpy()
-    #X_test = X_test.to_numpy()
-    
-    # Calculate event times
-    lower, upper = np.percentile(y_train["time"], [10, 90])
-    times = np.arange(lower, upper+1)
+    # Make event times
+    event_times = calculate_event_times(t_train, e_train)
     
     # Split training data in observed/unobserved
     y_obs = tf.convert_to_tensor(t_train[e_train], dtype=DTYPE)
@@ -78,7 +71,7 @@ if __name__ == "__main__":
     def exponential_lccdf(x_cens, y_cens, alpha, beta):
         return tf.reduce_sum(-y_cens / tf.exp(tf.transpose(x_cens)*beta + alpha))
 
-    number_of_steps = 50000
+    number_of_steps = 10000
     number_burnin_steps = int(number_of_steps/10)
 
     # Sample from the prior

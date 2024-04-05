@@ -3,6 +3,61 @@ import pandas as pd
 from sklearn.utils import shuffle
 from skmultilearn.model_selection import iterative_train_test_split
 from sklearn.model_selection import train_test_split
+import tensorflow as tf
+from typing import Optional
+
+def compute_unique_counts(
+        event: tf.Tensor,
+        time: tf.Tensor,
+        order: Optional[tf.Tensor] = None):
+    n_samples = tf.shape(event)[0]
+
+    if order is None:
+        order = tf.argsort(time)
+
+    uniq_times = tf.TensorArray(dtype=time.dtype, size=n_samples)
+    uniq_events = tf.TensorArray(dtype=tf.int32, size=n_samples)
+    uniq_counts = tf.TensorArray(dtype=tf.int32, size=n_samples)
+
+    i = 0
+    prev_val = time[order[0]]
+    j = 0
+    while True:
+        count_event = 0
+        count = 0
+        while i < n_samples and prev_val == time[order[i]]:
+            if event[order[i]]:
+                count_event += 1
+            count += 1
+            i += 1
+
+        uniq_times = uniq_times.write(j, prev_val)
+        uniq_events = uniq_events.write(j, count_event)
+        uniq_counts = uniq_counts.write(j, count)
+        j += 1
+
+        if i == n_samples:
+            break
+
+        prev_val = time[order[i]]
+
+    uniq_times = uniq_times.stack()[:j]
+    uniq_events = uniq_events.stack()[:j]
+    uniq_counts = uniq_counts.stack()[:j]
+    n_censored = uniq_counts - uniq_events
+
+    # offset cumulative sum by one
+    total_count = tf.concat([tf.constant([0], dtype=tf.int32), uniq_counts], axis=0)
+    n_at_risk = n_samples - tf.cumsum(total_count, axis=0)[:-1]
+
+    return uniq_times, uniq_events, n_at_risk, n_censored
+
+def calculate_event_times(t_train, e_train):
+    unique_times = compute_unique_counts(tf.convert_to_tensor(e_train), tf.convert_to_tensor(t_train))[0]
+    unique_times = tf.cast(unique_times, tf.float32)
+    if 0 not in unique_times:
+        unique_times = tf.concat([tf.constant([0], dtype=tf.float32), unique_times], axis=0)
+    return unique_times.numpy() 
 
 def split_time_event(y):
     y_t = np.array(y['time'])
