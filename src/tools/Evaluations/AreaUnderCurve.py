@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.metrics import roc_auc_score
 
-from Evaluations.util import check_and_convert
+from tools.Evaluations.util import check_and_convert
 
 
 def auc(

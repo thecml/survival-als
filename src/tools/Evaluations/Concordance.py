@@ -3,8 +3,8 @@ import pandas as pd
 from typing import Optional
 import warnings
 
-from Evaluations.custom_types import NumericArrayLike
-from Evaluations.util import (check_and_convert, KaplanMeierArea,
+from tools.Evaluations.custom_types import NumericArrayLike
+from tools.Evaluations.util import (check_and_convert, KaplanMeierArea,
                               predict_mean_survival_time, predict_median_survival_time)
 
 

@@ -7,19 +7,18 @@ import matplotlib.pyplot as plt
 from abc import ABC
 from functools import cached_property
 
-from Evaluations.custom_types import NumericArrayLike
-from Evaluations.util import check_and_convert
-from Evaluations.util import predict_mean_survival_time, predict_median_survival_time
-from Evaluations.util import predict_prob_from_curve, predict_multi_probs_from_curve, quantile_to_survival
+from tools.Evaluations.custom_types import Numeric, NumericArrayLike
+from tools.Evaluations.util import check_and_convert
+from tools.Evaluations.util import predict_mean_survival_time, predict_median_survival_time
+from tools.Evaluations.util import predict_prob_from_curve, predict_multi_probs_from_curve
 
-from Evaluations.Concordance import concordance
-from Evaluations.AreaUnderCurve import auc
-from Evaluations.BrierScore import single_brier_score, brier_multiple_points
-from Evaluations.MeanError import mean_error
-from Evaluations.OneCalibration import one_calibration
-from Evaluations.D_Calibration import d_calibration
-from Evaluations.KM_Calibration import km_calibration
-
+from tools.Evaluations.Concordance import concordance
+from tools.Evaluations.AreaUnderCurve import auc
+from tools.Evaluations.BrierScore import single_brier_score, brier_multiple_points
+from tools.Evaluations.MeanError import mean_error
+from tools.Evaluations.OneCalibration import one_calibration
+from tools.Evaluations.D_Calibration import d_calibration
+from tools.Evaluations.KM_Calibration import km_calibration
 
 class SurvivalEvaluator:
     def __init__(

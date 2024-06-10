@@ -23,3 +23,21 @@ TAP_COLS = ["TAP_Trial1RightFinger", "TAP_Trial1LeftFinger", "TAP_Trial2RightFin
             "TAP_Trial1RightFoot", "TAP_Trial1LeftFoot", "TAP_Trial2RightFoot", "TAP_Trial2LeftFoot",
             "TAP_Fingertapping_Right_avg", "TAP_Fingertapping_Left_avg", "TAP_Foottapping_Right_avg", "TAP_Foottapping_Left_avg"]
 UMN_COLS = ['UMN_Right', 'UMN_Left']
+
+PARAMS_COX = {
+    'hidden_size': 32,
+    'mu_scale': None,
+    'rho_scale': -5,
+    'sigma1': 1,
+    'sigma2': 0.002,
+    'pi': 0.5,
+    'verbose': False,
+    'lr': 0.00008,
+    'c1': 0.01,
+    'num_epochs': 1000,
+    'dropout': 0.5,
+    'n_samples_train': 10,
+    'n_samples_test': 100,
+    'batch_size': 32,
+    'early_stop': True,
+    'patience': 50}

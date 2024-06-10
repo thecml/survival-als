@@ -10,7 +10,7 @@ from pathlib import Path
 from utility.survival import convert_to_structured
 import config as cfg
 
-class DataLoader():
+class EventDataLoader():
     """
     Data loader
     """
@@ -65,8 +65,8 @@ class DataLoader():
         else:
             raise ValueError("Invalid event, please select {Speech, Swallowing, Handwriting, Walking}")
         
-        X = df[['SymptomDays', 'Region_of_Onset', 'DiseaseProgressionRate',
-                'TAP_Fingertapping_Right_avg', 'TAP_Foottapping_Right_avg',
+        X = df[['SymptomDays', 'DiseaseProgressionRate', # 'Region_of_Onset', 
+                'TAP_Fingertapping_Right_avg', 'TAP_Foottapping_Right_avg', 
                 'UMN_Right', 'UMN_Left']].copy(deep=True)
         
         obj_cols = X.select_dtypes(['bool']).columns.tolist() \
