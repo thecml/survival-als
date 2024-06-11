@@ -78,16 +78,16 @@ if __name__ == '__main__':
         event_df[f'Event_{event_col}'] = (event_df[event_col] <= threshold).astype(int)
         
         # Remove patients that have the event on first visit
-        #left_censored = event_df.loc[(event_df['Visit Label'] == 'Visit 1') \
-        #                             & (event_df[f'Event_{event_col}'] == 1)]['PSCID']
-        #event_df = event_df.loc[~event_df['PSCID'].isin(left_censored)]
+        left_censored = event_df.loc[(event_df['Visit Label'] == 'Visit 1') \
+                                     & (event_df[f'Event_{event_col}'] == 1)]['PSCID']
+        event_df = event_df.loc[~event_df['PSCID'].isin(left_censored)]
         
         # Adjust event indicator and time
         event_df[f'Event_{event_col}'] = event_df.groupby('PSCID')[f'Event_{event_col}'].shift(-1)
         event_df['TTE'] = event_df.groupby('PSCID')['Visit_Diff'].shift(-1)
         
         # Use only first visit
-        event_df = event_df.loc[event_df['Visit Label'] == 'Visit 1']
+        #event_df = event_df.loc[event_df['Visit Label'] == 'Visit 1']
         
         # Drop NA and reset index
         event_df = event_df.dropna(subset='TTE').reset_index(drop=True)
