@@ -8,6 +8,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
+def calculate_time_to_death(row):
+    time = row['Date of death'] - row['Visit_Date']
+    return time.total_seconds() / 86400
+
 if __name__ == '__main__':
     # Load data
     patient_filename = "Final_Data_sheet_July2023_HenkJan.xlsx"
@@ -78,7 +82,7 @@ if __name__ == '__main__':
         # Adjust event indicator and time
         df[f'Event_{event_col}'] = df.groupby('PSCID')[f'Event_{event_col}'].shift(-1)
         df[f'TTE_{event_col}']  = df.groupby('PSCID')['Visit_Diff'].shift(-1)
-    
+        
     # Use only first visit
     #df = df.loc[df['Visit Label'] == 'Visit 1']
     
@@ -107,6 +111,14 @@ if __name__ == '__main__':
         'TTE_ALSFRS_3_Swallowing': 'TTE_Swallowing',
         'TTE_ALSFRS_4_Handwriting': 'TTE_Handwriting',
         'TTE_ALSFRS_8_Walking': 'TTE_Walking'})
+    
+    # Record time to death
+    df['Event_Death'] = df['Status'].apply(lambda x: True if x == 'Deceased' else False)
+    df['TTE_Death'] = df.apply(lambda x: max(x['TTE_Speech'], x['TTE_Swallowing'],
+                                             x['TTE_Handwriting'], x['TTE_Walking']), axis=1)
+    df.loc[df['Event_Death'] == True, 'TTE_Death'] = df.loc[df['Event_Death'] == True].apply(calculate_time_to_death, axis=1)
+    df.loc[df['TTE_Death'].isna(), 'TTE_Death'] = df.loc[df['TTE_Death'].isna()].apply(lambda x: max(x['TTE_Speech'], x['TTE_Swallowing'],
+                                                                                                     x['TTE_Handwriting'], x['TTE_Walking']), axis=1)
         
     # Save data
     df.to_csv(f'{cfg.CALSNIC_DATA_DIR}/data.csv')

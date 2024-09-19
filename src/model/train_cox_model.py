@@ -12,7 +12,7 @@ from SurvivalEVAL.Evaluator import LifelinesEvaluator
 
 if __name__ == "__main__":
     # Load data
-    dl = get_data_loader("proact")
+    dl = get_data_loader("calsnic")
     dl = dl.load_data()
     train_dict, valid_dict, test_dict = dl.split_data(train_size=0.7, valid_size=0.1,
                                                       test_size=0.2, random_state=0)
@@ -28,7 +28,7 @@ if __name__ == "__main__":
                                                num_features, as_array=False)
     n_features = X_train.shape[1]
     
-    events = ['Speech', 'Swallowing', "Handwriting", "Walking"]
+    events = ['Speech', 'Swallowing', "Handwriting", "Walking", 'Death']
     for i, event in enumerate(events):
         y_train = convert_to_structured(train_dict['T'][:,i], train_dict['E'][:,i])
         y_valid = convert_to_structured(valid_dict['T'][:,i], valid_dict['E'][:,i])

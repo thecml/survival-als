@@ -21,6 +21,7 @@ if __name__ == "__main__":
     muscle_str_fn = 'PROACT_MUSCLESTRENGTH.csv'
     riluzole_fn = 'PROACT_RILUZOLE.csv'
     elescorial_fn = 'PROACT_ELESCORIAL.csv'
+    deathdata_fn = 'PROACT_DEATHDATA.csv'
         
     alsfrs_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, alsfrs_fn))
     history_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, alshistory_fn))
@@ -29,6 +30,7 @@ if __name__ == "__main__":
     muscle_str_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, muscle_str_fn))
     riluzole_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, riluzole_fn))
     elescorial_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, elescorial_fn))
+    deathdata_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, deathdata_fn))
 
     # Create dataframe with subjects
     df = pd.DataFrame()
@@ -68,6 +70,15 @@ if __name__ == "__main__":
     elescorial_criteria.rename({'el_escorial': 'El_escorial'}, axis=1, inplace=True)
     df = pd.merge(df, elescorial_criteria, on="subject_id", how='left')
     
+    # Record time of death
+    df = pd.merge(df, deathdata_df, on="subject_id", how='left')
+    df = df.rename({'Subject_Died': 'Event_Death',
+                    'Death_Days': 'TTE_Death'}, axis=1)
+    df['Event_Death'] = df['Event_Death'].fillna(False)
+    df.loc[df['TTE_Death'].isna(), 'TTE_Death'] = df.loc[df['TTE_Death'].isna()].apply(lambda x: max(x['TTE_Speech'], x['TTE_Swallowing'],
+                                                                                                     x['TTE_Handwriting'], x['TTE_Walking']), axis=1)
+    df['Event_Death'] = df['Event_Death'].replace({'Yes': True, 'No': False})
+    
     # Record FVC
     cols = [f'Subject_Liters_Trial_{i}' for i in range(1,4)]
     fvc_df['FVC_Min'] = fvc_df[cols].min(axis=1)
@@ -103,4 +114,4 @@ if __name__ == "__main__":
     df = df.reset_index(drop=True)
     
     # Save df
-    df.to_csv(f'{cfg.PROACT_DATA_DIR}/proact_data.csv')
+    df.to_csv(f'{cfg.PROACT_DATA_DIR}/data.csv')
