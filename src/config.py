@@ -3,7 +3,8 @@ import numpy as np
 
 # Directories
 ROOT_DIR = Path(__file__).absolute().parent.parent
-DATA_DIR = Path.joinpath(ROOT_DIR, "data")
+PROACT_DATA_DIR = Path.joinpath(ROOT_DIR, "data/proact")
+CALSNIC_DATA_DIR = Path.joinpath(ROOT_DIR, "data/calsnic")
 MODELS_DIR = Path.joinpath(ROOT_DIR, 'models')
 CONFIGS_DIR = Path.joinpath(ROOT_DIR, 'configs')
 RESULTS_DIR = Path.joinpath(ROOT_DIR, 'results')
@@ -24,7 +25,7 @@ TAP_COLS = ["TAP_Trial1RightFinger", "TAP_Trial1LeftFinger", "TAP_Trial2RightFin
             "TAP_Fingertapping_Right_avg", "TAP_Fingertapping_Left_avg", "TAP_Foottapping_Right_avg", "TAP_Foottapping_Left_avg"]
 UMN_COLS = ['UMN_Right', 'UMN_Left']
 
-PARAMS_COX = {
+COX_PARAMS = {
     'hidden_size': 32,
     'mu_scale': None,
     'rho_scale': -5,
@@ -41,3 +42,15 @@ PARAMS_COX = {
     'batch_size': 32,
     'early_stop': True,
     'patience': 50}
+
+DEEPSURV_PARAMS = {
+    'hidden_size': 32,
+    'verbose': False,
+    'lr': 0.005,
+    'c1': 0.01,
+    'num_epochs': 1000,
+    'dropout': 0.25,
+    'batch_size': 32,
+    'early_stop': True,
+    'patience': 10
+}

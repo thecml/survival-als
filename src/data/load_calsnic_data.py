@@ -1,5 +1,8 @@
 import config as cfg
 from pathlib import Path
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -9,8 +12,8 @@ if __name__ == '__main__':
     # Load data
     patient_filename = "Final_Data_sheet_July2023_HenkJan.xlsx"
     survival_filename = "Survival_Jan2024.xlsx"
-    patient_df = pd.read_excel(Path.joinpath(cfg.DATA_DIR, patient_filename), engine='openpyxl', date_format="%d/%m/%Y")
-    survival_df = pd.read_excel(Path.joinpath(cfg.DATA_DIR, survival_filename), engine='openpyxl', date_format="%d/%m/%Y")
+    patient_df = pd.read_excel(Path.joinpath(cfg.CALSNIC_DATA_DIR, patient_filename), engine='openpyxl', date_format="%d/%m/%Y")
+    survival_df = pd.read_excel(Path.joinpath(cfg.CALSNIC_DATA_DIR, survival_filename), engine='openpyxl', date_format="%d/%m/%Y")
     
     patient_df = patient_df.loc[patient_df['Patient or Control'] == 'Patient'] # only use patients
     patient_df = patient_df[patient_df['Visit_Date'].notna()]
@@ -42,7 +45,7 @@ if __name__ == '__main__':
     # Use only observations from ALS patients
     df = df.loc[df['Diagnosis'] == 'ALS']
     
-    # Do som replacing
+    # Do some replacing
     df['Region_of_Onset'] = df['Region_of_Onset'].str.replace('{@}', '_')
     df['Region_of_Onset'] = df['Region_of_Onset'].replace('not_available', None)
         
@@ -64,34 +67,47 @@ if __name__ == '__main__':
     # Calculate disease progression rate
     df['DiseaseProgressionRate'] = (48 - df['ALSFRS_TotalScore']) / (df['SymptomDays']/30)
 
-    # Use only visit 1 and 2
-    #df = df[df['Visit Label'].isin(['Visit 1', 'Visit 2'])]
-            
     # Annotate events
     event_names = ['speech', 'swallowing', 'handwriting', 'walking']
     event_cols = ['ALSFRS_1_Speech', 'ALSFRS_3_Swallowing', 'ALSFRS_4_Handwriting', 'ALSFRS_8_Walking']
     threshold = 2
     for event_name, event_col in zip(event_names, event_cols):
-        event_df = df.copy(deep=True)
-
         # Assess threshold
-        event_df[f'Event_{event_col}'] = (event_df[event_col] <= threshold).astype(int)
-        
-        # Remove patients that have the event on first visit
-        left_censored = event_df.loc[(event_df['Visit Label'] == 'Visit 1') \
-                                     & (event_df[f'Event_{event_col}'] == 1)]['PSCID']
-        event_df = event_df.loc[~event_df['PSCID'].isin(left_censored)]
+        df[f'Event_{event_col}'] = (df[event_col] <= threshold).astype(int)
         
         # Adjust event indicator and time
-        event_df[f'Event_{event_col}'] = event_df.groupby('PSCID')[f'Event_{event_col}'].shift(-1)
-        event_df['TTE'] = event_df.groupby('PSCID')['Visit_Diff'].shift(-1)
-        
-        # Use only first visit
-        #event_df = event_df.loc[event_df['Visit Label'] == 'Visit 1']
-        
-        # Drop NA and reset index
-        event_df = event_df.dropna(subset='TTE').reset_index(drop=True)
+        df[f'Event_{event_col}'] = df.groupby('PSCID')[f'Event_{event_col}'].shift(-1)
+        df[f'TTE_{event_col}']  = df.groupby('PSCID')['Visit_Diff'].shift(-1)
     
-        # Save data
-        event_df.to_csv(f'{cfg.DATA_DIR}/data_{event_name}.csv')
+    # Use only first visit
+    #df = df.loc[df['Visit Label'] == 'Visit 1']
+    
+    # Rename "Visit Label" column to "Visit"
+    df = df.rename(columns={'Visit Label': 'Visit'})
+    
+    # Extract visit number and replace the values with just "1", "2", or "3"
+    df['Visit'] = df['Visit'].str.extract('(\d)').astype(int)
+    
+    # Remove patients that have the event on first visit # TODO: Maybe include this
+    #left_censored = df.loc[(df['Visit Label'] == 'Visit 1') \
+    #                        & (df[f'Event_{event_col}'] == 1)]['PSCID']
+    #event_df = df.loc[~df['PSCID'].isin(left_censored)]
+    
+    # Drop NA and reset index
+    nan_cols = [f"Event_{col}" for col in event_cols]
+    df = df.dropna(subset=nan_cols).reset_index(drop=True)
+    
+    # Rename cols
+    df = df.rename(columns={
+        'Event_ALSFRS_1_Speech': 'Event_Speech',
+        'Event_ALSFRS_3_Swallowing': 'Event_Swallowing',
+        'Event_ALSFRS_4_Handwriting': 'Event_Handwriting',
+        'Event_ALSFRS_8_Walking': 'Event_Walking',
+        'TTE_ALSFRS_1_Speech': 'TTE_Speech',
+        'TTE_ALSFRS_3_Swallowing': 'TTE_Swallowing',
+        'TTE_ALSFRS_4_Handwriting': 'TTE_Handwriting',
+        'TTE_ALSFRS_8_Walking': 'TTE_Walking'})
+        
+    # Save data
+    df.to_csv(f'{cfg.CALSNIC_DATA_DIR}/data.csv')
     
