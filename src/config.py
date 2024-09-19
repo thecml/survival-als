@@ -8,6 +8,8 @@ CALSNIC_DATA_DIR = Path.joinpath(ROOT_DIR, "data/calsnic")
 MODELS_DIR = Path.joinpath(ROOT_DIR, 'models')
 CONFIGS_DIR = Path.joinpath(ROOT_DIR, 'configs')
 RESULTS_DIR = Path.joinpath(ROOT_DIR, 'results')
+HIERARCH_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'hierarch')
+MENSA_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mensa')
 
 PATIENT_COLS = ['PSCID', 'Visit Label', 'Diagnosis', 'Age', 'Sex', 'Handedness',
                 'YearsEd', 'SymptomOnset_Date', 'Symptom_Duration',
@@ -53,4 +55,21 @@ DEEPSURV_PARAMS = {
     'batch_size': 32,
     'early_stop': True,
     'patience': 10
+}
+
+HIERARCH_PARAMS = {
+    'theta_layer_size': [100],
+    'layer_size_fine_bins': [(50, 5), (50, 5)],
+    'lr': 0.001,
+    'reg_constant': 0.05,
+    'n_batches': 10,
+    'batch_size': 32,
+    'backward_c_optim': False,
+    'hierarchical_loss': True,
+    'alpha': 0.0001,
+    'sigma': 10,
+    'use_theta': True,
+    'use_deephit': False,
+    'n_extra_bins': 1,
+    'verbose': True
 }
