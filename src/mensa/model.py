@@ -64,8 +64,8 @@ class MLP(torch.nn.Module):
     def forward(self, x):
         xrep = self.embedding(x)
         dim = x.shape[0]
-        shape = torch.clamp(self.act(self.shapeg(xrep)) + self.shape.expand(dim, -1), min=-10, max=10)
-        scale = torch.clamp(self.act(self.scaleg(xrep)) + self.scale.expand(dim, -1), min=-10, max=10)
+        shape = self.act(self.shapeg(xrep)) + self.shape.expand(dim, -1)
+        scale = self.act(self.scaleg(xrep)) + self.scale.expand(dim, -1)
         gate = self.gate(xrep) / self.temp
         outcomes = []
         for i in range(self.n_events):
@@ -103,8 +103,6 @@ class MENSA:
         elif optimizer == 'adamw':
             optimizer = torch.optim.AdamW(optim_dict, betas=betas, weight_decay=weight_decay)
         
-        multi_event = True if train_dict['T'].ndim > 1 else False
-        
         train_loader = DataLoader(TensorDataset(train_dict['X'].to(self.device),
                                                 train_dict['T'].to(self.device),
                                                 train_dict['E'].to(self.device)),
@@ -130,13 +128,9 @@ class MENSA:
                 optimizer.zero_grad()
                 
                 params = self.model.forward(xi) # run forward pass
-                if multi_event:
-                    f, s = self.compute_risks_multi(params, ti)
-                    loss = conditional_weibull_loss_multi(f, s, ei, self.model.n_events)
-                else:
-                    f, s = self.compute_risks(params, ti)
-                    loss = conditional_weibull_loss(f, s, ei, self.model.n_events)
-                        
+                f, s = self.compute_risks_multi(params, ti)
+                loss = conditional_weibull_loss_multi(f, s, ei, self.model.n_events)
+
                 loss.backward()
                 optimizer.step()
                 
@@ -151,12 +145,8 @@ class MENSA:
             with torch.no_grad():
                 for xi, ti, ei in valid_loader:
                     params = self.model.forward(xi) # run forward pass
-                    if multi_event:
-                        f, s = self.compute_risks_multi(params, ti)
-                        loss = conditional_weibull_loss_multi(f, s, ei, self.model.n_events)
-                    else:
-                        f, s = self.compute_risks(params, ti)
-                        loss = conditional_weibull_loss(f, s, ei, self.model.n_events)
+                    f, s = self.compute_risks_multi(params, ti)
+                    loss = conditional_weibull_loss_multi(f, s, ei, self.model.n_events)
                     
                     total_valid_loss += loss.item()
                 

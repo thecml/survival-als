@@ -13,13 +13,12 @@ import torch
 import random
 import warnings
 from tools.data_loader import get_data_loader
-from hierarchical import util
-from hierarchical.helper import format_hierarchical_hyperparams
-from utility.data import (format_hierarchical_data_me, calculate_layer_size_hierarch)
-from scipy.interpolate import interp1d
 from SurvivalEVAL.Evaluator import LifelinesEvaluator
 from utility.evaluation import global_C_index, local_C_index
 from utility.config import load_config
+
+from bnn.model import BayesianMensa
+from bnn.utility import train_model
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -74,48 +73,18 @@ if __name__ == "__main__":
     # Make time bins
     time_bins = make_time_bins(train_dict['T'].cpu(), event=None, dtype=dtype).to(device)
     time_bins = torch.cat((torch.tensor([0]).to(device), time_bins))
-
-    # Train model
-    config = load_config(cfg.HIERARCH_CONFIGS_DIR, f"{dataset_name}.yaml")
-    n_time_bins = len(time_bins)
-    train_data, valid_data, test_data = format_hierarchical_data_me(train_dict, valid_dict, test_dict, n_time_bins)
-    config['min_time'] = int(train_data[1].min())
-    config['max_time'] = int(train_data[1].max())
-    config['num_bins'] = n_time_bins
-    params = cfg.HIERARCH_PARAMS
-    params['n_batches'] = int(n_samples/params['batch_size'])
-    layer_size = params['layer_size_fine_bins'][0][0]
-    params['layer_size_fine_bins'] = calculate_layer_size_hierarch(layer_size, n_time_bins)
-    hyperparams = format_hierarchical_hyperparams(params)
-    verbose = params['verbose']
-    model = util.get_model_and_output("hierarch_full", train_data, test_data,
-                                      valid_data, config, hyperparams, verbose)
-
-    # Make predictions
-    event_preds = util.get_surv_curves(torch.tensor(test_data[0], dtype=dtype), model)
-    bin_locations = np.linspace(0, config['max_time'], event_preds[0].shape[1])
-    all_preds = []
-    for i in range(len(event_preds)):
-        preds = pd.DataFrame(event_preds[i], columns=bin_locations)
-        all_preds.append(preds)
+    num_time_bins = len(time_bins)
     
-    # Make evaluation for each event
-    events = ['Speech', 'Swallowing', "Handwriting", "Walking", 'Death']
-    for i, surv_pred in enumerate(all_preds):
-        n_train_samples = len(train_dict['X'])
-        n_test_samples= len(test_dict['X'])
-        y_train_time = train_dict['T'][:,i]
-        y_train_event = train_dict['E'][:,i]
-        y_test_time = test_dict['T'][:,i]
-        y_test_event = test_dict['E'][:,i]
-        
-        lifelines_eval = LifelinesEvaluator(surv_pred.T, y_test_time, y_test_event,
-                                            y_train_time, y_train_event)
-        
-        mae_margin = lifelines_eval.mae(method="Margin")
-        ci = lifelines_eval.concordance()[0]
-        ibs = lifelines_eval.integrated_brier_score()
-        d_calib = lifelines_eval.d_calibration()[0]
-        
-        print(f"Evaluated {events[i]}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
-              f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}")
+    # Training loop
+    config = dotdict(load_config(cfg.BAYMENSA_CONFIGS_DIR, f"{dataset_name}.yaml"))
+    n_epochs = config['n_epochs']
+    n_dists = config['n_dists']
+    lr = config['lr']
+    batch_size = config['batch_size']
+    layers = config['layers']
+    model = BayesianMensa(n_features, n_dists, layers=[32],
+                          n_time_bins=num_time_bins,
+                          n_events=n_events, config=config)
+    model = train_model(model, train_dict, valid_dict, time_bins, config=config,
+                        random_state=0, reset_model=True, device=device)
+    

@@ -24,8 +24,6 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
-
 np.random.seed(0)
 torch.manual_seed(0)
 random.seed(0)

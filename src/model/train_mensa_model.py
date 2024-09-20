@@ -24,8 +24,6 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-warnings.filterwarnings("ignore", message=".*The 'nopython' keyword.*")
-
 np.random.seed(0)
 torch.manual_seed(0)
 random.seed(0)
@@ -82,7 +80,7 @@ if __name__ == "__main__":
     batch_size = config['batch_size']
     layers = config['layers']
     model = MENSA(n_features, layers=layers, n_events=n_events,
-                    n_dists=n_dists, device=device)
+                  n_dists=n_dists, device=device)
     model.fit(train_dict, valid_dict, learning_rate=lr, n_epochs=n_epochs,
               patience=10, batch_size=batch_size, verbose=True)
     

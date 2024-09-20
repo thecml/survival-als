@@ -52,5 +52,4 @@ if __name__ == "__main__":
         
         print(f"Evaluated {event}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
               f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}")
-        
     
