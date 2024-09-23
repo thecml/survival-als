@@ -12,6 +12,9 @@ data/*
 # Results
 results/*
 
+# Model
+models/*
+
 # Data
 data/Final_Data_sheet_July2023_HenkJan.xlsx
 data/Survival_Jan2024.xlsx
