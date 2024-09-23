@@ -56,26 +56,6 @@ class BayesianBaseModel(nn.Module):
 
     def get_name(self):
         return self._get_name()
-    
-def make_ensemble_mensa_prediction(
-        model: BayesianBaseModel,
-        x: torch.Tensor,
-        time_bins: NumericArrayLike,
-        risk: int,
-        config: argparse.Namespace
-) -> (torch.Tensor, torch.Tensor, torch.Tensor):
-    model.eval()
-
-    with torch.no_grad():
-        # ensemble_output should have size: n_samples * dataset_size * n_bin
-        t = list(time_bins.cpu().numpy())
-        logits_outputs = model.forward(x, sample=True, n_samples=config.n_samples_test)
-        survival_outputs = mensa_survival(logits_outputs, t, time_bins, model.n_dists,
-                                          risk, with_sample=False) # TODO
-        mean_survival_outputs = survival_outputs.mean(dim=0)
-
-    time_bins = torch.cat([torch.tensor([0]), time_bins], 0).to(survival_outputs.device)
-    return mean_survival_outputs, time_bins, survival_outputs
 
 class BayesianMensa(BayesianBaseModel):
     """
@@ -120,12 +100,6 @@ class BayesianMensa(BayesianBaseModel):
         self.shape = nn.Parameter(-torch.ones(self.n_dists * n_events))
         self.scale = nn.Parameter(-torch.ones(self.n_dists * n_events))
         
-        #self.gate = BayesianLinear(lastdim, self.n_dists * self.n_events, config, bias=False)
-        #self.scaleg = BayesianLinear(lastdim, self.n_dists * self.n_events, config, bias=True)
-        #self.shapeg = BayesianLinear(lastdim, self.n_dists * self.n_events, config, bias=True)
-        
-        #self.embedding = BayesianLinear(in_features, layers[0], config, bias=True)
-
         self.gate = BayesianLinear(in_features, self.n_dists * self.n_events, config, bias=False)
         self.scaleg = BayesianLinear(in_features, self.n_dists * self.n_events, config, bias=True)
         self.shapeg = BayesianLinear(in_features, self.n_dists * self.n_events, config, bias=True)

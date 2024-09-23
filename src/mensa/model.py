@@ -222,7 +222,7 @@ class MENSA:
         squish = nn.LogSoftmax(dim=1)
         logits = squish(logits)
         
-        t_horz = torch.tensor(time_bins).double().to(logits.device)
+        t_horz = time_bins.clone().detach().double().to(logits.device)
         t_horz = t_horz.repeat(shape.shape[0], 1)
         
         cdfs = []

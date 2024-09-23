@@ -35,38 +35,43 @@ torch.set_default_dtype(dtype)
 # Setup device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-dataset_name = "proact"
+dataset_name = "synthetic"
 
 if __name__ == "__main__":
     # Load data
     dl = get_data_loader(dataset_name)
-    dl = dl.load_data()
+    dl = dl.load_data(cfg.SYNTHETIC_SETTINGS, device=device, dtype=dtype)
     train_dict, valid_dict, test_dict = dl.split_data(train_size=0.7, valid_size=0.1,
                                                       test_size=0.2, random_state=0)
     n_events = dl.n_events
     
-    # Preprocess data
-    cat_features = dl.cat_features
-    num_features = dl.num_features
-    event_cols = [f'e{i+1}' for i in range(n_events)]
-    time_cols = [f't{i+1}' for i in range(n_events)]
-    X_train = pd.DataFrame(train_dict['X'], columns=dl.columns)
-    X_valid = pd.DataFrame(valid_dict['X'], columns=dl.columns)
-    X_test = pd.DataFrame(test_dict['X'], columns=dl.columns)
-    X_train, X_valid, X_test= preprocess_data(X_train, X_valid, X_test, cat_features,
-                                              num_features, as_array=True)
-    train_dict['X'] = torch.tensor(X_train, device=device, dtype=dtype)
-    train_dict['E'] = torch.tensor(train_dict['E'], device=device, dtype=torch.int64)
-    train_dict['T'] = torch.tensor(train_dict['T'], device=device, dtype=torch.int64)
-    valid_dict['X'] = torch.tensor(X_valid, device=device, dtype=dtype)
-    valid_dict['E'] = torch.tensor(valid_dict['E'], device=device, dtype=torch.int64)
-    valid_dict['T'] = torch.tensor(valid_dict['T'], device=device, dtype=torch.int64)
-    test_dict['X'] = torch.tensor(X_test, device=device, dtype=dtype)
-    test_dict['E'] = torch.tensor(test_dict['E'], device=device, dtype=torch.int64)
-    test_dict['T'] = torch.tensor(test_dict['T'], device=device, dtype=torch.int64)
+    if dataset_name == "synthetic":
+        for dataset in [train_dict, valid_dict, test_dict]: # put on device
+            for key in ['X', 'T', 'E']:
+                dataset[key] = dataset[key].to(device)
+    else:
+        # Preprocess data
+        cat_features = dl.cat_features
+        num_features = dl.num_features
+        event_cols = [f'e{i+1}' for i in range(n_events)]
+        time_cols = [f't{i+1}' for i in range(n_events)]
+        X_train = pd.DataFrame(train_dict['X'], columns=dl.columns)
+        X_valid = pd.DataFrame(valid_dict['X'], columns=dl.columns)
+        X_test = pd.DataFrame(test_dict['X'], columns=dl.columns)
+        X_train, X_valid, X_test= preprocess_data(X_train, X_valid, X_test, cat_features,
+                                                num_features, as_array=True)
+        train_dict['X'] = torch.tensor(X_train, device=device, dtype=dtype)
+        train_dict['E'] = torch.tensor(train_dict['E'], device=device, dtype=torch.int64)
+        train_dict['T'] = torch.tensor(train_dict['T'], device=device, dtype=torch.int64)
+        valid_dict['X'] = torch.tensor(X_valid, device=device, dtype=dtype)
+        valid_dict['E'] = torch.tensor(valid_dict['E'], device=device, dtype=torch.int64)
+        valid_dict['T'] = torch.tensor(valid_dict['T'], device=device, dtype=torch.int64)
+        test_dict['X'] = torch.tensor(X_test, device=device, dtype=dtype)
+        test_dict['E'] = torch.tensor(test_dict['E'], device=device, dtype=torch.int64)
+        test_dict['T'] = torch.tensor(test_dict['T'], device=device, dtype=torch.int64)
     
     n_samples = train_dict['X'].shape[0]
-    n_features = train_dict['X'].shape[1]
+    n_features = train_dict['X'].shape[1] 
     
     # Make time bins
     time_bins = make_time_bins(train_dict['T'].cpu(), event=None, dtype=dtype).to(device)
@@ -92,7 +97,6 @@ if __name__ == "__main__":
         all_preds.append(model_preds)
     
     # Make evaluation for each event
-    events = ['Speech', 'Swallowing', "Handwriting", "Walking", 'Death']
     for i, surv_pred in enumerate(all_preds):
         n_train_samples = len(train_dict['X'])
         n_test_samples= len(test_dict['X'])
@@ -106,8 +110,8 @@ if __name__ == "__main__":
         
         mae_margin = lifelines_eval.mae(method="Margin")
         ci = lifelines_eval.concordance()[0]
-        ibs = lifelines_eval.integrated_brier_score()
+        ibs = lifelines_eval.integrated_brier_score(num_points=len(time_bins))
         d_calib = lifelines_eval.d_calibration()[0]
         
-        print(f"Evaluated {events[i]}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
+        print(f"Evaluated E{i+1}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
               f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}")

@@ -1,8 +1,15 @@
+from pathlib import Path
+from typing import List, Tuple, Union
+import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
 from tqdm import trange
+import config as cfg
+
+Numeric = Union[float, int, bool]
+NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, pd.DataFrame, torch.Tensor]
 
 def train_model(model: nn.Module, train_dict: dict, valid_dict: dict,
                 time_bins: torch.Tensor, config: dict, random_state: int,
@@ -10,7 +17,7 @@ def train_model(model: nn.Module, train_dict: dict, valid_dict: dict,
     train_size = train_dict['X'].shape[0]
     valid_size = valid_dict['X'].shape[0]
     
-    optim_dict = [{'params': model.parameters(), 'lr': config.lr, "weight_decay":1e-5}]
+    optim_dict = [{'params': model.parameters(), 'lr': config.lr}]
     optimizer = torch.optim.Adam(optim_dict)
     
     if reset_model:
@@ -43,7 +50,6 @@ def train_model(model: nn.Module, train_dict: dict, valid_dict: dict,
             loss, log_prior, log_variational_posterior, log_likelihood = model.sample_elbo(xi, ti, ei, train_size)
 
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
             total_train_loss += loss.item() / train_size
@@ -63,50 +69,79 @@ def train_model(model: nn.Module, train_dict: dict, valid_dict: dict,
                                 f"nll = {total_train_log_likelihood:.4f}; "
                                 f"Val: Total = {total_valid_loss:.4f}, "
                                 f"nll = {total_valid_log_likelihood:.4f}; ")
+        if config.early_stop:
+            if best_valid_loss > valid_loss:
+                best_valid_loss = valid_loss
+                best_ep = i
+                #torch.save(model.state_dict(), Path.joinpath(cfg.MODELS_DIR, 'model.pth'))
+            if (i - best_ep) > config.patience:
+                print(f"Validation loss converges at {best_ep}-th epoch.")
+                break
     
+    #model.load_state_dict(torch.load(Path.joinpath(cfg.MODELS_DIR, 'model.pth')))
     return model
 
-def mensa_survival(logits: torch.Tensor,
+def make_ensemble_mensa_prediction(
+        model: torch.nn.Module,
+        x: torch.Tensor,
+        time_bins: NumericArrayLike,
+        risk: int,
+        n_dists: int,
+        config: dict
+) -> (torch.Tensor, torch.Tensor, torch.Tensor):
+    model.eval()
+
+    with torch.no_grad():
+        # ensemble_output should have size: n_samples * dataset_size * n_bin
+        t = list(time_bins.cpu().numpy())
+        logits_outputs = model.forward(x, sample=True, n_samples=config.n_samples_test)
+        
+        survival_outputs = []
+        n_events = len(logits_outputs)
+        for j in range(config.n_samples_test):
+            shapes = logits_outputs[risk][0][j]
+            scales = logits_outputs[risk][1][j]
+            logits =  logits_outputs[risk][2][j]
+            params = [shapes, scales, logits]
+            survival_outputs.append(torch.Tensor(mensa_survival(params, t, time_bins=time_bins, n_dists=n_dists)))
+            
+        survival_outputs = torch.stack(survival_outputs, dim=0)
+        mean_survival_outputs = survival_outputs.mean(dim=0)
+
+    return mean_survival_outputs, time_bins, survival_outputs
+
+def mensa_survival(survival_outputs: List[torch.Tensor],
                    t: torch.Tensor,
                    time_bins: torch.Tensor,
-                   n_dists: int,
-                   risk: int,
-                   with_sample: bool = True):
+                   n_dists: int):
     """Generates predicted survival curves from predicted logits.
     """
-    if with_sample:
-        assert logits.dim() == 3, "The logits should have dimension with with size (n_samples, n_data, n_bins)"
-        raise NotImplementedError()
-    else: # no sampling
-        assert logits.dim() == 2, "The logits should have dimension with with size (n_data, n_bins)"
-        shape, scale, logits = logits[risk][0], logits[risk][1], logits[risk][2]
-        k_ = shape
-        b_ = scale
+    shape, scale, logits = survival_outputs[0], survival_outputs[1], survival_outputs[2]
+    k_ = shape
+    b_ = scale
 
-        squish = nn.LogSoftmax(dim=1)
-        logits = squish(logits)
-        
-        t_horz = torch.tensor(time_bins).double().to(logits.device)
-        t_horz = t_horz.repeat(shape.shape[0], 1)
-        
-        cdfs = []
-        for j in range(len(time_bins)):
+    squish = nn.LogSoftmax(dim=1)
+    logits = squish(logits)
+    
+    t_horz = time_bins.clone().detach().double().to(logits.device)
+    t_horz = t_horz.repeat(shape.shape[0], 1)
+    
+    cdfs = []
+    for j in range(len(time_bins)):
 
-            t = t_horz[:, j]
-            lcdfs = []
+        t = t_horz[:, j]
+        lcdfs = []
 
-            for g in range(n_dists):
+        for g in range(n_dists):
 
-                k = k_[:, g]
-                b = b_[:, g]
-                s = - (torch.pow(torch.exp(b)*t, torch.exp(k)))
-                lcdfs.append(s)
+            k = k_[:, g]
+            b = b_[:, g]
+            s = - (torch.pow(torch.exp(b)*t, torch.exp(k)))
+            lcdfs.append(s)
 
-            lcdfs = torch.stack(lcdfs, dim=1)
-            lcdfs = lcdfs+logits
-            lcdfs = torch.logsumexp(lcdfs, dim=1)
-            cdfs.append(lcdfs.detach().cpu().numpy())
-        
-        return np.exp(np.array(cdfs)).T
-        
-        
+        lcdfs = torch.stack(lcdfs, dim=1)
+        lcdfs = lcdfs+logits
+        lcdfs = torch.logsumexp(lcdfs, dim=1)
+        cdfs.append(lcdfs.detach().cpu().numpy())
+    
+    return np.exp(np.array(cdfs)).T

@@ -74,3 +74,16 @@ HIERARCH_PARAMS = {
     'n_extra_bins': 1,
     'verbose': True
 }
+
+SYNTHETIC_SETTINGS = {
+    "alpha_e1": 18,
+    "alpha_e2": 17,
+    "alpha_e3": 16,
+    "gamma_e1": 4,
+    "gamma_e2": 4,
+    "gamma_e3": 4,
+    "n_events": 3,
+    "n_samples": 5000,
+    "n_features": 10,
+    "adm_censoring_time": 10
+}
