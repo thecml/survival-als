@@ -35,9 +35,11 @@ torch.set_default_dtype(dtype)
 # Setup device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+dataset_name = "calsnic"
+
 if __name__ == "__main__":
     # Load data
-    dl = get_data_loader("proact")
+    dl = get_data_loader(dataset_name)
     dl = dl.load_data()
     train_dict, valid_dict, test_dict = dl.split_data(train_size=0.7, valid_size=0.1,
                                                       test_size=0.2, random_state=0)

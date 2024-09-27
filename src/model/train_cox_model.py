@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import torch
 import config as cfg
 from utility.survival import (split_time_event, make_stratified_split,
                               convert_to_structured, make_event_times, preprocess_data)
@@ -9,10 +10,14 @@ from sksurv.linear_model import CoxPHSurvivalAnalysis
 from sksurv.metrics import concordance_index_censored
 from tools.data_loader import get_data_loader
 from SurvivalEVAL.Evaluator import LifelinesEvaluator
+from SurvivalEVAL.Evaluations.util import KaplanMeier
+from SurvivalEVAL import mean_error
+
+dataset_name = "calsnic"
 
 if __name__ == "__main__":
     # Load data
-    dl = get_data_loader("calsnic")
+    dl = get_data_loader(dataset_name)
     dl = dl.load_data()
     train_dict, valid_dict, test_dict = dl.split_data(train_size=0.7, valid_size=0.1,
                                                       test_size=0.2, random_state=0)
@@ -50,6 +55,16 @@ if __name__ == "__main__":
         ibs = lifelines_eval.integrated_brier_score()
         d_calib = lifelines_eval.d_calibration()[0]
         
-        print(f"Evaluated {event}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
-              f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}")
+        # Calculate KM estimate
+        km_model = KaplanMeier(y_train["time"], y_train["event"])
+        km_surv_prob = torch.from_numpy(km_model.predict(times))
+        time_idx = np.where(km_surv_prob <= 0.5, km_surv_prob, -np.inf).argmax(axis=0)
+        km_estimate = np.array(len(y_test["time"])*[float(times[time_idx])])
+        km_mae = mean_error(km_estimate, event_times=y_test["time"], event_indicators=y_test["event"],
+                            train_event_times=y_train["time"], train_event_indicators=y_train["event"],
+                            method='Margin')
+        
+        print(f"Evaluated E{i+1}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
+              f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}, " +
+              f"KM MAE: {round(km_mae, 3)}")
     

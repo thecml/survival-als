@@ -67,10 +67,12 @@ class PROACTDataLoader(BaseDataLoader):
                            any(substring in col for substring in ['Event', 'TTE'])]
         df = df.loc[(df['TTE_Speech'] > 0) & (df['TTE_Swallowing'] > 0)
                     & (df['TTE_Handwriting'] > 0) & (df['TTE_Walking'] > 0)
-                    & (df['TTE_Death'] > 0)] # min time
+                    & (df['TTE_Death'] > 0)]
         df = df.loc[(df['TTE_Speech'] <= 1800) & (df['TTE_Swallowing'] <= 1800)
                     & (df['TTE_Handwriting'] <= 1800) & (df['TTE_Walking'] <= 1800)
                     & (df['TTE_Death'] <= 1800)] # 5 years max
+        df = df.drop(df.filter(like='_Strength').columns, axis=1) # drop strength cols as they have many nans
+        df['El_escorial'] = df['El_escorial'].replace('Possible', 'Probable') # Replace "Possible" with "Probable"
         events = ['Speech', 'Swallowing', 'Handwriting', 'Walking', 'Death']
         self.X = df.drop(columns_to_drop, axis=1)
         self.columns = list(self.X.columns)
