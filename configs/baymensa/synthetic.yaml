@@ -1,13 +1,13 @@
 layers: [32]
-lr: 0.001
+lr: 0.001 # experiment with lower numbers, e.g. 0.00008
 n_epochs: 10
 n_dists: 1
 batch_size: 32
-mu_scale: Null
-rho_scale: -5.0
-sigma1: 1
-sigma2: 0.002
-pi: 1.0
+mu_scale: Null # mean, null = Default
+rho_scale: -5.0 # variance
+sigma1: 1 # sigma for the gaussian, 1/2
+sigma2: 0.002 # sigma for the gaussian, e^-6, smaller than 0.002
+pi: 1.0 # 0.5 - 1.0
 n_samples_train: 10
 n_samples_test: 100
 verbose: True

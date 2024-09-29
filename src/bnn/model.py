@@ -100,11 +100,11 @@ class BayesianMensa(BayesianBaseModel):
         self.shape = nn.Parameter(-torch.ones(self.n_dists * n_events))
         self.scale = nn.Parameter(-torch.ones(self.n_dists * n_events))
         
-        self.gate = BayesianLinear(in_features, self.n_dists * self.n_events, config, bias=False)
+        self.gate = BayesianLinear(in_features, self.n_dists * self.n_events, config, bias=False) # Fully connected layer
         self.scaleg = BayesianLinear(in_features, self.n_dists * self.n_events, config, bias=True)
         self.shapeg = BayesianLinear(in_features, self.n_dists * self.n_events, config, bias=True)
         
-        self.embedding = BayesianElementwiseLinear(in_features, config)
+        self.embedding = BayesianElementwiseLinear(in_features, config) # input and output has size 10, no cross connection
 
     def forward(self, x: torch.Tensor, sample: bool, n_samples: int) -> torch.Tensor:
         xrep = F.relu6(self.embedding(x, n_samples=n_samples))
