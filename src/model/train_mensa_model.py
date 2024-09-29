@@ -76,7 +76,7 @@ if __name__ == "__main__":
         test_dict['T'] = torch.tensor(test_dict['T'], device=device, dtype=torch.int64)
     
     n_samples = train_dict['X'].shape[0]
-    n_features = train_dict['X'].shape[1] 
+    n_features = train_dict['X'].shape[1]
     
     # Make time bins
     time_bins = make_time_bins(train_dict['T'].cpu(), event=None, dtype=dtype).to(device)

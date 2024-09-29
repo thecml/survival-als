@@ -2,7 +2,7 @@ from SurvivalEVAL import mean_error
 import pandas as pd
 import numpy as np
 import config as cfg
-from utility.survival import (make_stratified_split, convert_to_structured,
+from utility.survival import (coverage, make_stratified_split, convert_to_structured,
                               make_time_bins, make_event_times, preprocess_data,
                               predict_median_survival_times)
 from sklearn.model_selection import train_test_split
@@ -14,6 +14,8 @@ from torch.utils.data import DataLoader, TensorDataset
 import torch
 import random
 import warnings
+import math
+from scipy.stats import chisquare
 from tools.data_loader import get_data_loader
 from SurvivalEVAL.Evaluator import LifelinesEvaluator
 from SurvivalEVAL.Evaluations.util import KaplanMeier
@@ -101,22 +103,23 @@ if __name__ == "__main__":
     
     # Make predictions
     X_test = test_dict['X']
-    all_preds = []
+    mean_preds, ensemble_preds = [], []
     for i in range(n_events):
         survival_outputs, time_bins, ensemble_outputs = make_ensemble_mensa_prediction(model, X_test, time_bins,
                                                                                        risk=i, n_dists=n_dists,
                                                                                        config=config)
-        model_preds = pd.DataFrame(survival_outputs, columns=time_bins.cpu().numpy()) # use mean survival outputs
-        all_preds.append(model_preds)
+        mean_model_preds = pd.DataFrame(survival_outputs, columns=time_bins.cpu().numpy()) # use mean survival outputs
+        mean_preds.append(mean_model_preds)
+        ensemble_preds.append(ensemble_outputs)
     
     # Make evaluation for each event
-    for i, surv_pred in enumerate(all_preds):
+    for i, (mean_pred, ensemble_pred) in enumerate(zip(mean_preds, ensemble_preds)):
         y_train_time = train_dict['T'][:,i].cpu().numpy()
         y_train_event = train_dict['E'][:,i].cpu().numpy()
         y_test_time = test_dict['T'][:,i].cpu().numpy()
         y_test_event = test_dict['E'][:,i].cpu().numpy()
         
-        lifelines_eval = LifelinesEvaluator(surv_pred.T, y_test_time, y_test_event,
+        lifelines_eval = LifelinesEvaluator(mean_pred.T, y_test_time, y_test_event,
                                             y_train_time, y_train_event)
         
         mae_margin = lifelines_eval.mae(method="Margin")
@@ -133,7 +136,23 @@ if __name__ == "__main__":
                             train_event_times=y_train_time, train_event_indicators=y_train_event,
                             method='Margin')
         
+        # Calculate C-calib
+        coverage_stats = {}
+        credible_region_sizes = np.arange(0.1, 1, 0.1)
+        for percentage in credible_region_sizes:   
+            drop_num = math.floor(0.5 * config.n_samples_test * (1 - percentage))
+            lower_outputs = torch.kthvalue(ensemble_pred, k=1 + drop_num, dim=0)[0]
+            upper_outputs = torch.kthvalue(ensemble_pred, k=config.n_samples_test - drop_num, dim=0)[0]
+            coverage_stats[percentage] = coverage(time_bins, upper_outputs, lower_outputs,
+                                                  y_test_time, y_test_event)
+        expected_percentages = coverage_stats.keys()
+        observed_percentages = coverage_stats.values()
+        expected = [x / sum(expected_percentages) * 100 for x in expected_percentages] # normalize
+        observed = [x / sum(observed_percentages) * 100 for x in observed_percentages]
+        _, p_value = chisquare(f_obs=observed, f_exp=expected)
+        c_calib = p_value
+        
         print(f"Evaluated E{i+1}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
               f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}, " +
-              f"KM MAE: {round(km_mae, 3)}")
+              f"C-Calib={round(c_calib, 3)}, KM MAE: {round(km_mae, 3)}")
         

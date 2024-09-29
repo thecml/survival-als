@@ -52,7 +52,14 @@ if __name__ == '__main__':
     # Do some replacing
     df['Region_of_Onset'] = df['Region_of_Onset'].str.replace('{@}', '_')
     df['Region_of_Onset'] = df['Region_of_Onset'].replace('not_available', None)
-        
+    df['Region_of_Onset'] = df['Region_of_Onset'].replace('bulbar_speech', "bulbar")
+    df['Region_of_Onset'] = df['Region_of_Onset'].replace('bulbar_speech_bulbar_swallowing', "bulbar")
+    df['Region_of_Onset'] = df['Region_of_Onset'].replace('bulbar_swallowing_upper_extremity', "bulbar")
+    df['Region_of_Onset'] = df['Region_of_Onset'].replace('bulbar_speech_upper_extremity', "bulbar")
+    df['Region_of_Onset'] = df['Region_of_Onset'].replace('bulbar_swallowing', "bulbar")
+    df['Region_of_Onset'] = df['Region_of_Onset'].replace('bulbar_speech_bulbar_swallowing_lower_extremity', "bulbar")
+    df['Region_of_Onset'] = df['Region_of_Onset'].replace('upper_extremity_ftd_cognitive', "upper_extremity")
+    
     # Convert types
     df['Age'] = df['Age'].astype(int)
     df['Visit_Date'] = pd.to_datetime(df['Visit_Date'], format="%Y-%m-%d")
