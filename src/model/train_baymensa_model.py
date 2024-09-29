@@ -40,12 +40,15 @@ torch.set_default_dtype(dtype)
 # Setup device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-dataset_name = "synthetic"
+dataset_name = "proact"
 
 if __name__ == "__main__":
     # Load data
     dl = get_data_loader(dataset_name)
-    dl = dl.load_data(cfg.SYNTHETIC_SETTINGS, device=device, dtype=dtype)
+    if dataset_name == "synthetic":
+        dl = dl.load_data(cfg.SYNTHETIC_SETTINGS, device=device, dtype=dtype)
+    else:
+        dl = dl.load_data()
     train_dict, valid_dict, test_dict = dl.split_data(train_size=0.7, valid_size=0.1,
                                                       test_size=0.2, random_state=0)
     n_events = dl.n_events
@@ -64,7 +67,7 @@ if __name__ == "__main__":
         X_valid = pd.DataFrame(valid_dict['X'], columns=dl.columns)
         X_test = pd.DataFrame(test_dict['X'], columns=dl.columns)
         X_train, X_valid, X_test= preprocess_data(X_train, X_valid, X_test, cat_features,
-                                                num_features, as_array=True)
+                                                  num_features, as_array=True)
         train_dict['X'] = torch.tensor(X_train, device=device, dtype=dtype)
         train_dict['E'] = torch.tensor(train_dict['E'], device=device, dtype=torch.int64)
         train_dict['T'] = torch.tensor(train_dict['T'], device=device, dtype=torch.int64)
@@ -125,12 +128,12 @@ if __name__ == "__main__":
         km_model = KaplanMeier(y_train_time, y_train_event)
         km_surv_prob = torch.from_numpy(km_model.predict(time_bins))
         time_idx = np.where(km_surv_prob <= 0.5, km_surv_prob, -np.inf).argmax(axis=0)
-        km_estimate = np.array(len(y_test_time)*[km_estimate])
+        km_estimate = np.array(len(y_test_time)*[float(time_bins[time_idx])])
         km_mae = mean_error(km_estimate, event_times=y_test_time, event_indicators=y_test_event,
                             train_event_times=y_train_time, train_event_indicators=y_train_event,
                             method='Margin')
+        
         print(f"Evaluated E{i+1}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
-              f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}")
-        print(f"KM MAE: {km_mae}")
-        print()
+              f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}, " +
+              f"KM MAE: {round(km_mae, 3)}")
         

@@ -1,8 +1,8 @@
 layers: [32]
-lr: 0.01
+lr: 0.001
 n_epochs: 1000
 n_dists: 1
-batch_size: 32
+batch_size: 16
 mu_scale: Null
 rho_scale: -5.0
 sigma1: 1
