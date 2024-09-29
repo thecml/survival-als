@@ -1,8 +1,6 @@
 layers: [32]
 lr: 0.001
-n_epochs: 1000
-lr: 0.001 # experiment with lower numbers, e.g. 0.00008
-n_epochs: 10
+n_epochs: 10000
 n_dists: 1
 batch_size: 32
 mu_scale: Null # mean, null = Default
