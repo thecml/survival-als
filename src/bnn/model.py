@@ -62,7 +62,7 @@ class BayesianMensa(BayesianBaseModel):
     Multi-event network for survival analysis with Bayesian layers.
     """
     def __init__(self, in_features: int, n_dists: int, layers: List[int],
-                 n_time_bins: int, n_events, config: argparse.Namespace):
+                 n_events: int, config: argparse.Namespace):
         """Initialises the module.
 
         Parameters
@@ -75,8 +75,6 @@ class BayesianMensa(BayesianBaseModel):
             Configuration/hyper-parameters of the network.
         """
         super().__init__()
-        if n_time_bins < 1:
-            raise ValueError("The number of time bins must be at least 1")
         self.config = config
         
         self.n_events = n_events
@@ -85,7 +83,6 @@ class BayesianMensa(BayesianBaseModel):
         self.discount = 1.0
         
         self.in_features = in_features
-        self.num_time_bins = n_time_bins
 
         if layers is None:
             layers = []
@@ -181,7 +178,6 @@ class BayesianMensa(BayesianBaseModel):
         f, s = self.compute_risks_multi(mean_outputs, t)
         nll = conditional_weibull_loss_multi(f, s, e, self.n_events)
         
-        # Shouldn't here be batch_size instead?
         loss = (log_variational_posterior - log_prior) / num_batch + nll
         return loss, log_prior, log_variational_posterior, nll
 
@@ -194,5 +190,4 @@ class BayesianMensa(BayesianBaseModel):
         return self
 
     def __repr__(self):
-        return (f"{self.__class__.__name__}(in_features={self.in_features},"
-                f" num_time_bins={self.num_time_bins})")
+        return (f"{self.__class__.__name__}(in_features={self.in_features}")

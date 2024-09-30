@@ -1,3 +1,4 @@
+from pathlib import Path
 from SurvivalEVAL import mean_error
 import pandas as pd
 import numpy as np
@@ -35,7 +36,7 @@ np.random.seed(0)
 torch.manual_seed(0)
 random.seed(0)
 
-# Set precision
+# Setup precision
 dtype = torch.float64
 torch.set_default_dtype(dtype)
 
@@ -86,7 +87,6 @@ if __name__ == "__main__":
     # Make time bins
     time_bins = make_time_bins(train_dict['T'].cpu(), event=None, dtype=dtype).to(device)
     time_bins = torch.cat((torch.tensor([0]).to(device), time_bins))
-    num_time_bins = len(time_bins)
     
     # Training loop
     config = dotdict(load_config(cfg.BAYMENSA_CONFIGS_DIR, f"{dataset_name}.yaml"))
@@ -96,7 +96,6 @@ if __name__ == "__main__":
     batch_size = config['batch_size']
     layers = config['layers']
     model = BayesianMensa(n_features, n_dists, layers=layers,
-                          n_time_bins=num_time_bins,
                           n_events=n_events, config=config)
     model = train_model(model, train_dict, valid_dict, time_bins, config=config,
                         random_state=0, reset_model=True, device=device)
@@ -155,4 +154,7 @@ if __name__ == "__main__":
         print(f"Evaluated E{i+1}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
               f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}, " +
               f"C-Calib={round(c_calib, 3)}, KM MAE: {round(km_mae, 3)}")
+        
+        # Save model
+        torch.save(model.state_dict(), Path.joinpath(cfg.MODELS_DIR, 'model.pth'))
         
