@@ -128,5 +128,5 @@ if __name__ == '__main__':
                                                                                                      x['TTE_Handwriting'], x['TTE_Walking']), axis=1)
         
     # Save data
-    df.to_csv(f'{cfg.CALSNIC_DATA_DIR}/data.csv')
+    df.to_csv(f'{cfg.CALSNIC_DATA_DIR}/calsnic_processed.csv')
     

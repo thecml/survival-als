@@ -8,10 +8,10 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 def annotate_event(group, event_col):
     event_observed = True if any(group[event_col] == 1) else False
     if event_observed:
-        delta_sum_observed = group.loc[group[event_col] == 1, 'DeltaSum'].iloc[0]
+        delta_sum_observed = group.loc[group[event_col] == 1, 'ALSFRS_Delta'].iloc[0]
     else:
-        delta_sum_observed = group['DeltaSum'].max()
-    return pd.Series({'DeltaSum_Observed': delta_sum_observed, 'Event': event_observed})
+        delta_sum_observed = group['ALSFRS_Delta'].max()
+    return pd.Series({'Delta_Observed': delta_sum_observed, 'Event': event_observed})
 
 if __name__ == "__main__":
     alsfrs_fn = "PROACT_ALSFRS.csv"
@@ -36,17 +36,18 @@ if __name__ == "__main__":
     df = pd.DataFrame()
     df['subject_id'] = alsfrs_df['subject_id'].unique()
     
+    # Sort ALSFRS scores by id and delta
+    alsfrs_df = alsfrs_df.sort_values(by=['subject_id', 'ALSFRS_Delta'])
+    
     # Annotate events
     threshold = 2
     event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
     event_cols = ['Q1_Speech', 'Q3_Swallowing', 'Q4_Handwriting', 'Q8_Walking']
-    alsfrs_df['DeltaSum'] = alsfrs_df.groupby('subject_id')['ALSFRS_Delta'].cumsum()
     for event_name, event_col in zip(event_names, event_cols):
         alsfrs_df[f'Event_{event_name}'] = (alsfrs_df[event_col] <= threshold).astype(int)
         event_df = alsfrs_df.groupby('subject_id').apply(annotate_event, f'Event_{event_name}').reset_index()
-        event_df = event_df.rename({'DeltaSum_Observed':f'TTE_{event_name}',
-                                    'Event': f'Event_{event_name}'}, axis=1)
-        df = pd.merge(df, event_df, on="subject_id", how='left').dropna()
+        event_df = event_df.rename({'Delta_Observed': f'TTE_{event_name}', 'Event': f'Event_{event_name}'}, axis=1)
+        df = pd.merge(df, event_df, on="subject_id", how='left')
     
     # Record site of onset
     filter_col = [col for col in history_df if col.startswith('Site_of_Onset__')]
@@ -114,4 +115,4 @@ if __name__ == "__main__":
     df = df.reset_index(drop=True)
     
     # Save df
-    df.to_csv(f'{cfg.PROACT_DATA_DIR}/data.csv')
+    df.to_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed.csv')

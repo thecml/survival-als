@@ -60,7 +60,7 @@ class PROACTDataLoader(BaseDataLoader):
     Data loader for ALS dataset (ME). Use the PRO-ACT dataset.
     """
     def load_data(self, n_samples:int = None):
-        df = pd.read_csv(f'{cfg.PROACT_DATA_DIR}/data.csv', index_col=0)
+        df = pd.read_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed.csv', index_col=0)
         if n_samples:
             df = df.sample(n=n_samples, random_state=0)
         columns_to_drop = [col for col in df.columns if
@@ -123,7 +123,7 @@ class PROACTDataLoader(BaseDataLoader):
     
 class CALSNICDataLoader(BaseDataLoader):
     def load_data(self, n_samples:int = None):
-        df = pd.read_csv(f'{cfg.CALSNIC_DATA_DIR}/data.csv', index_col=0)
+        df = pd.read_csv(f'{cfg.CALSNIC_DATA_DIR}/calsnic_processed.csv', index_col=0)
         if n_samples:
             df = df.sample(n=n_samples, random_state=0)
         columns_to_drop = [col for col in df.columns if

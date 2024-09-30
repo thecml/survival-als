@@ -113,9 +113,8 @@ if __name__ == "__main__":
             all_preds_arr = [df.to_numpy() for df in mean_preds]
             global_ci = global_C_index(all_preds_arr, test_dict['T'].cpu().numpy(),
                                        test_dict['E'].cpu().numpy())
-            #local_ci = local_C_index(all_preds_arr, test_dict['T'].cpu().numpy(),
-            #                         test_dict['E'].cpu().numpy())
-            local_ci = 0
+            local_ci = local_C_index(all_preds_arr, test_dict['T'].cpu().numpy(),
+                                     test_dict['E'].cpu().numpy())
             
             # Evaluate predictions each event
             model_results = pd.DataFrame()
