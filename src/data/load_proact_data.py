@@ -61,8 +61,11 @@ if __name__ == "__main__":
     
     # Annotate events
     threshold = 2
-    event_names = ['Speech', "Salivation", 'Swallowing', 'Handwriting', 'Walking']
-    event_cols = ['Q1_Speech', "Q2_Salivation", 'Q3_Swallowing', 'Q4_Handwriting', 'Q8_Walking']
+    event_cols = ['Q1_Speech', "Q2_Salivation", 'Q3_Swallowing', 'Q4_Handwriting',
+                  'Q5a_Cutting_without_Gastrostomy', 'Q5b_Cutting_with_Gastrostomy',
+                  'Q6_Dressing_and_Hygiene', 'Q7_Turning_in_Bed', 'Q8_Walking',
+                  'Q9_Climbing_Stairs', 'Q10_Respiratory']
+    event_names = [col.split('_', 1)[1] for col in event_cols]
     for event_name, event_col in zip(event_names, event_cols):
         alsfrs_df[f'Event_{event_name}'] = (alsfrs_df[event_col] <= threshold).astype(int)
         event_df = alsfrs_df.groupby('subject_id').apply(annotate_event, f'Event_{event_name}').reset_index()

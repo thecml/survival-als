@@ -43,7 +43,7 @@ torch.set_default_dtype(dtype)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Define models
-MODELS = ['bayesian'] # deepsurv, hierarch', 
+MODELS = ['deepsurv', 'bayesian'] # deepsurv, hierarch',
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
