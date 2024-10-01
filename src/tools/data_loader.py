@@ -67,22 +67,22 @@ class PROACTDataLoader(BaseDataLoader):
                            any(substring in col for substring in ['Event', 'TTE'])]
         df = df.loc[(df['TTE_Speech'] > 0) & (df['TTE_Swallowing'] > 0)
                     & (df['TTE_Handwriting'] > 0) & (df['TTE_Walking'] > 0)
-                    & (df['TTE_Death'] > 0)]
+                    & (df['TTE_Salivation'] > 0) & (df['TTE_Death'] > 0)]
         df = df.loc[(df['TTE_Speech'] <= 1800) & (df['TTE_Swallowing'] <= 1800)
                     & (df['TTE_Handwriting'] <= 1800) & (df['TTE_Walking'] <= 1800)
-                    & (df['TTE_Death'] <= 1800)] # 5 years max
+                    & (df['TTE_Salivation'] <= 1800) & (df['TTE_Death'] <= 1800)] # 5 years max
         df = df.drop(df.filter(like='_Strength').columns, axis=1) # drop strength cols as they have many nans
         df['El_escorial'] = df['El_escorial'].replace('Possible', 'Probable') # Replace "Possible" with "Probable"
-        events = ['Speech', 'Swallowing', 'Handwriting', 'Walking', 'Death']
+        events = ['Speech', 'Salivation', 'Swallowing', 'Handwriting', 'Walking', 'Death']
         self.X = df.drop(columns_to_drop, axis=1)
         self.columns = list(self.X.columns)
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
         times = [df[f'TTE_{event_col}'].values for event_col in events]
         events = [df[f'Event_{event_col}'].values for event_col in events]
-        self.y_t = np.stack((times[0], times[1], times[2], times[3], times[4]), axis=1)
-        self.y_e = np.stack((events[0], events[1], events[2], events[3], events[4]), axis=1)
-        self.n_events = 5
+        self.y_t = np.stack((times[0], times[1], times[2], times[3], times[4], times[5]), axis=1)
+        self.y_e = np.stack((events[0], events[1], events[2], events[3], events[4], events[5]), axis=1)
+        self.n_events = 6
         return self
 
     def split_data(self, train_size: float, valid_size: float,

@@ -97,20 +97,8 @@ if __name__ == "__main__":
         preds = pd.DataFrame(spline(time_bins.cpu().numpy()), columns=time_bins.cpu().numpy())
         all_preds.append(preds)
     
-    # Test local and global CI
-    #all_preds_arr = [df.to_numpy() for df in all_preds]
-    #global_ci = global_C_index(all_preds_arr, test_dict['T'].cpu().numpy(),
-    #                           test_dict['E'].cpu().numpy())
-    #local_ci = local_C_index(all_preds_arr, test_dict['T'].cpu().numpy(),
-    #                         test_dict['E'].cpu().numpy())
-    # gives RuntimeWarning: invalid value encountered in scalar divide
-    #temp_test_time
-    #array([384, 384, 384, 384], dtype=int64)
-    #temp_test_event
-    #array([1, 1, 1, 1], dtype=int64)
-    
     # Make evaluation for each event
-    events = ['Speech', 'Swallowing', "Handwriting", "Walking", 'Death']
+    events = ['Speech', 'Salivation', 'Swallowing', "Handwriting", "Walking", 'Death']
     for i, surv_pred in enumerate(all_preds):
         n_train_samples = len(train_dict['X'])
         n_test_samples= len(test_dict['X'])

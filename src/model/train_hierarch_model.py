@@ -100,7 +100,7 @@ if __name__ == "__main__":
         all_preds.append(preds)
     
     # Make evaluation for each event
-    events = ['Speech', 'Swallowing', "Handwriting", "Walking", 'Death']
+    events = ['Speech', 'Salivation', 'Swallowing', "Handwriting", "Walking", 'Death']
     for i, surv_pred in enumerate(all_preds):
         n_train_samples = len(train_dict['X'])
         n_test_samples= len(test_dict['X'])

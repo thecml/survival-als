@@ -41,8 +41,8 @@ if __name__ == "__main__":
     
     # Annotate events
     threshold = 2
-    event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
-    event_cols = ['Q1_Speech', 'Q3_Swallowing', 'Q4_Handwriting', 'Q8_Walking']
+    event_names = ['Speech', "Salivation", 'Swallowing', 'Handwriting', 'Walking']
+    event_cols = ['Q1_Speech', "Q2_Salivation", 'Q3_Swallowing', 'Q4_Handwriting', 'Q8_Walking']
     for event_name, event_col in zip(event_names, event_cols):
         alsfrs_df[f'Event_{event_name}'] = (alsfrs_df[event_col] <= threshold).astype(int)
         event_df = alsfrs_df.groupby('subject_id').apply(annotate_event, f'Event_{event_name}').reset_index()
@@ -77,7 +77,8 @@ if __name__ == "__main__":
                     'Death_Days': 'TTE_Death'}, axis=1)
     df['Event_Death'] = df['Event_Death'].fillna(False)
     df.loc[df['TTE_Death'].isna(), 'TTE_Death'] = df.loc[df['TTE_Death'].isna()].apply(lambda x: max(x['TTE_Speech'], x['TTE_Swallowing'],
-                                                                                                     x['TTE_Handwriting'], x['TTE_Walking']), axis=1)
+                                                                                                     x['TTE_Handwriting'], x['TTE_Walking'],
+                                                                                                     x['TTE_Salivation']), axis=1)
     df['Event_Death'] = df['Event_Death'].replace({'Yes': True, 'No': False})
     
     # Record FVC

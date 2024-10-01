@@ -33,7 +33,7 @@ if __name__ == "__main__":
                                                num_features, as_array=False)
     n_features = X_train.shape[1]
     
-    events = ['Speech', 'Swallowing', "Handwriting", "Walking", 'Death']
+    events = ['Speech', 'Salivation', 'Swallowing', "Handwriting", "Walking", 'Death']
     for i, event in enumerate(events):
         y_train = convert_to_structured(train_dict['T'][:,i], train_dict['E'][:,i])
         y_valid = convert_to_structured(valid_dict['T'][:,i], valid_dict['E'][:,i])
