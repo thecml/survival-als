@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import config as cfg
+from sota.mensa.model import MENSA
 from utility.survival import (make_stratified_split, convert_to_structured,
                               make_time_bins, make_event_times, preprocess_data)
 from sklearn.model_selection import train_test_split
@@ -16,7 +17,6 @@ from tools.data_loader import get_data_loader
 from SurvivalEVAL.Evaluator import LifelinesEvaluator
 from utility.evaluation import global_C_index, local_C_index
 from utility.config import load_config
-from mensa.model import MENSA
 from SurvivalEVAL.Evaluations.util import KaplanMeier
 from SurvivalEVAL import mean_error
 
