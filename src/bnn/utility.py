@@ -65,20 +65,20 @@ def train_model(model: nn.Module, train_dict: dict, valid_dict: dict,
         
         pbar.set_description(f"[epoch {i + 1: 4}/{config.n_epochs}]")
         pbar.set_postfix_str(f"Train: Total = {total_train_loss:.4f}, "
-                                f"KL = {total_kl_divergence:.4f}, "
-                                f"nll = {total_train_log_likelihood:.4f}; "
-                                f"Val: Total = {total_valid_loss:.4f}, "
-                                f"nll = {total_valid_log_likelihood:.4f}; ")
+                             f"KL = {total_kl_divergence:.4f}, "
+                             f"nll = {total_train_log_likelihood:.4f}; "
+                             f"Val: Total = {total_valid_loss:.4f}, "
+                             f"nll = {total_valid_log_likelihood:.4f}; ")
         if config.early_stop:
             if best_valid_loss > valid_loss:
                 best_valid_loss = valid_loss
                 best_ep = i
-                #torch.save(model.state_dict(), Path.joinpath(cfg.MODELS_DIR, 'model.pth'))
+                torch.save(model.state_dict(), Path.joinpath(cfg.MODELS_DIR, 'model.pth'))
             if (i - best_ep) > config.patience:
                 print(f"Validation loss converges at {best_ep}-th epoch.")
                 break
     
-    #model.load_state_dict(torch.load(Path.joinpath(cfg.MODELS_DIR, 'model.pth')))
+    model.load_state_dict(torch.load(Path.joinpath(cfg.MODELS_DIR, 'model.pth')))
     return model
 
 def make_ensemble_mensa_prediction(
@@ -114,7 +114,8 @@ def mensa_survival(survival_outputs: List[torch.Tensor],
                    t: torch.Tensor,
                    time_bins: torch.Tensor,
                    n_dists: int):
-    """Generates predicted survival curves from predicted logits.
+    """
+    Generates predicted survival curves from predicted logits.
     """
     shape, scale, logits = survival_outputs[0], survival_outputs[1], survival_outputs[2]
     k_ = shape

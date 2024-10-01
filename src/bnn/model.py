@@ -10,7 +10,7 @@ from typing import List, Tuple
 import pandas as pd
 
 from bnn.base_layers import BayesianLinear, BayesianElementwiseLinear, BayesianHorseshoeLayer
-from mensa.loss import conditional_weibull_loss_multi
+from sota.mensa.loss import conditional_weibull_loss_multi
 from bnn.utility import mensa_survival
 
 Numeric = Union[float, int, bool]
@@ -92,7 +92,7 @@ class BayesianMensa(BayesianBaseModel):
             lastdim = in_features
         else:
             lastdim = layers[-1]
-        
+            
         self.act = nn.SELU()
         self.shape = nn.Parameter(-torch.ones(self.n_dists * n_events))
         self.scale = nn.Parameter(-torch.ones(self.n_dists * n_events))
@@ -105,6 +105,7 @@ class BayesianMensa(BayesianBaseModel):
 
     def forward(self, x: torch.Tensor, sample: bool, n_samples: int) -> torch.Tensor:
         xrep = F.relu6(self.embedding(x, n_samples=n_samples))
+        
         dim = x.shape[0]
         shape = self.act(self.shapeg(xrep, sample, n_samples)) + self.shape.expand(dim, -1)
         scale = self.act(self.scaleg(xrep, sample, n_samples)) + self.scale.expand(dim, -1)

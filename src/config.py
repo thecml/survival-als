@@ -10,7 +10,7 @@ CONFIGS_DIR = Path.joinpath(ROOT_DIR, 'configs')
 RESULTS_DIR = Path.joinpath(ROOT_DIR, 'results')
 HIERARCH_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'hierarch')
 MENSA_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mensa')
-BAYMENSA_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'baymensa')
+BAYESIAN_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'bayesian')
 
 PATIENT_COLS = ['PSCID', 'Visit Label', 'Diagnosis', 'Age', 'Sex', 'Handedness',
                 'YearsEd', 'SymptomOnset_Date', 'Symptom_Duration',

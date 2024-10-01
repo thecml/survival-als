@@ -68,11 +68,12 @@ class PROACTDataLoader(BaseDataLoader):
         df = df.loc[(df['TTE_Speech'] > 0) & (df['TTE_Swallowing'] > 0)
                     & (df['TTE_Handwriting'] > 0) & (df['TTE_Walking'] > 0)
                     & (df['TTE_Salivation'] > 0) & (df['TTE_Death'] > 0)]
-        df = df.loc[(df['TTE_Speech'] <= 1800) & (df['TTE_Swallowing'] <= 1800)
-                    & (df['TTE_Handwriting'] <= 1800) & (df['TTE_Walking'] <= 1800)
-                    & (df['TTE_Salivation'] <= 1800) & (df['TTE_Death'] <= 1800)] # 5 years max
+        df = df.loc[(df['TTE_Speech'] <= 1000) & (df['TTE_Swallowing'] <= 1000)
+                    & (df['TTE_Handwriting'] <= 1000) & (df['TTE_Walking'] <= 1000)
+                    & (df['TTE_Salivation'] <= 1000) & (df['TTE_Death'] <= 1000)] # 5 years max
         df = df.drop(df.filter(like='_Strength').columns, axis=1) # drop strength cols as they have many nans
         df['El_escorial'] = df['El_escorial'].replace('Possible', 'Probable') # Replace "Possible" with "Probable"
+        df = df.drop('Race_Caucasian', axis=1) # Drop race information
         events = ['Speech', 'Salivation', 'Swallowing', 'Handwriting', 'Walking', 'Death']
         self.X = df.drop(columns_to_drop, axis=1)
         self.columns = list(self.X.columns)
@@ -93,11 +94,13 @@ class PROACTDataLoader(BaseDataLoader):
         df['e3'] = self.y_e[:,2]
         df['e4'] = self.y_e[:,3]
         df['e5'] = self.y_e[:,4]
+        df['e6'] = self.y_e[:,5]
         df['t1'] = self.y_t[:,0]
         df['t2'] = self.y_t[:,1]
         df['t3'] = self.y_t[:,2]
         df['t4'] = self.y_t[:,3]
         df['t5'] = self.y_t[:,4]
+        df['t6'] = self.y_t[:,5]
         df['time'] = self.y_t[:,0] # split on first time
         
         df_train, df_valid, df_test = make_stratified_split(df, stratify_colname='time', frac_train=train_size,
@@ -105,18 +108,20 @@ class PROACTDataLoader(BaseDataLoader):
                                                             random_state=random_state)
         
         dataframes = [df_train, df_valid, df_test]
-        event_cols = ['e1', 'e2', 'e3', 'e4', 'e5']
-        time_cols = ['t1', 't2', 't3', 't4', 't5']
+        event_cols = ['e1', 'e2', 'e3', 'e4', 'e5', 'e6']
+        time_cols = ['t1', 't2', 't3', 't4', 't5', 't6']
         dicts = []
         for dataframe in dataframes:
             data_dict = dict()
             data_dict['X'] = dataframe.drop(event_cols + time_cols + ['time'], axis=1).values
             data_dict['E'] = np.stack([dataframe['e1'].values, dataframe['e2'].values,
                                        dataframe['e3'].values, dataframe['e4'].values,
-                                       dataframe['e5'].values], axis=1).astype(np.int64)
+                                       dataframe['e5'].values, dataframe['e6'].values],
+                                      axis=1).astype(np.int64)
             data_dict['T'] = np.stack([dataframe['t1'].values, dataframe['t2'].values,
                                        dataframe['t3'].values, dataframe['t4'].values,
-                                       dataframe['t5'].values], axis=1).astype(np.int64)
+                                       dataframe['t5'].values, dataframe['t6'].values],
+                                      axis=1).astype(np.int64)
             dicts.append(data_dict)
             
         return dicts[0], dicts[1], dicts[2]

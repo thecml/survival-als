@@ -89,11 +89,8 @@ if __name__ == "__main__":
     time_bins = torch.cat((torch.tensor([0]).to(device), time_bins))
     
     # Training loop
-    config = dotdict(load_config(cfg.BAYMENSA_CONFIGS_DIR, f"{dataset_name}.yaml"))
-    n_epochs = config['n_epochs']
+    config = dotdict(load_config(cfg.BAYESIAN_CONFIGS_DIR, f"{dataset_name}.yaml"))
     n_dists = config['n_dists']
-    lr = config['lr']
-    batch_size = config['batch_size']
     layers = config['layers']
     model = BayesianMensa(n_features, n_dists, layers=layers,
                           n_events=n_events, config=config)
@@ -138,7 +135,7 @@ if __name__ == "__main__":
         # Calculate C-calib
         coverage_stats = {}
         credible_region_sizes = np.arange(0.1, 1, 0.1)
-        for percentage in credible_region_sizes:   
+        for percentage in credible_region_sizes:
             drop_num = math.floor(0.5 * config.n_samples_test * (1 - percentage))
             lower_outputs = torch.kthvalue(ensemble_pred, k=1 + drop_num, dim=0)[0]
             upper_outputs = torch.kthvalue(ensemble_pred, k=config.n_samples_test - drop_num, dim=0)[0]
@@ -154,7 +151,4 @@ if __name__ == "__main__":
         print(f"Evaluated E{i+1}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
               f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}, " +
               f"C-Calib={round(c_calib, 3)}, KM MAE: {round(km_mae, 3)}")
-        
-        # Save model
-        torch.save(model.state_dict(), Path.joinpath(cfg.MODELS_DIR, 'model.pth'))
         

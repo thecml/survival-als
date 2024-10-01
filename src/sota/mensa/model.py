@@ -6,7 +6,7 @@ import numpy as np
 
 from tqdm import trange
 
-from mensa.loss import conditional_weibull_loss, conditional_weibull_loss_multi
+from sota.mensa.loss import conditional_weibull_loss, conditional_weibull_loss_multi
 
 def create_representation(input_dim, layers, activation, bias=True):
     if activation == 'ReLU6':

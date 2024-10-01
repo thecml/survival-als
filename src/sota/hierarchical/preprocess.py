@@ -5,7 +5,7 @@ data preprocessing (binning time to events, split into train/test/validation)
 import numpy as np
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from hierarchical import get_data
+from sota.hierarchical import get_data
 
 
 #######################################################################################

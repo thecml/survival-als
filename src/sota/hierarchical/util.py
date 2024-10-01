@@ -15,10 +15,10 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 
-from hierarchical import preprocess
-from hierarchical import simulation
-from hierarchical import hierarch
-from hierarchical import direct
+from sota.hierarchical import preprocess
+from sota.hierarchical import simulation
+from sota.hierarchical import hierarch
+from sota.hierarchical import direct
 
 
 ###################################################################################################

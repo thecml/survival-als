@@ -1,5 +1,5 @@
 '''
-proposed method, predicts survival curves at different granularities/scales
+predicts survival curves at the original time scale only
 '''
 
 import numpy as np
@@ -7,7 +7,7 @@ import itertools
 import torch
 import torch.nn as nn
 
-from hierarchical import util
+from sota.hierarchical import util
 
 
 ###################################################################################################
@@ -15,7 +15,7 @@ from hierarchical import util
 event network
 '''
 class event_network(nn.Module):
-    def __init__(self, layer_sizes, num_bins, get_event_prob, multitask, blockable):
+    def __init__(self, layer_sizes, num_bins, get_event_prob, multitask, blockable=False):
         super(event_network, self).__init__()
         self.x_layers = []
         self.p_layers = []
@@ -33,11 +33,12 @@ class event_network(nn.Module):
             for _ in range(num_reps):
                 if num_bins % layer_sizes[i][1] != 0 or (i == len(layer_sizes) - 1 and total_size != num_bins):
                     raise(Exception('Invalid divisions'))     
-                in_size = layer_sizes[i][0]
                 in_size = layer_sizes[0][0]
                 self.x_layers[i].append(nn.Linear(in_size, layer_sizes[i + 1][0]))
                 self.p_layers[i].append(nn.Linear(layer_sizes[i + 1][0], layer_sizes[i + 1][1]))
             num_reps = num_reps * layer_sizes[i + 1][1] 
+        self.x_layers = [self.x_layers[-1]]
+        self.p_layers = [self.p_layers[-1]]
         
         self.event_indicator = nn.Linear(layer_sizes[0][0], 1)
         if blockable:
@@ -69,54 +70,47 @@ class event_network(nn.Module):
     
     def forward(self, inp, return_pre=False):
         got_event = nn.Sigmoid()(self.event_indicator(inp))
+        num_data = inp.shape[0]
         
-        outputs = []
-        probs = []
         pre_probs = []
-        
         for i in range(len(self.p_layers)):
-            probs.append([])
-            outputs.append([])
             pre_probs.append([])
             for j in range(len(self.p_layers[i])):
-                if i > 0:
-                    parent_net = j // int(self.layer_sizes[i][1])
-                    net_inp = inp
-                    output = self.activation(self.x_layers[i][j](net_inp))
-                    prob = self.p_layers[i][j](output)
-                    pre_probs[i].append(prob)
-                    prob = self.softmax(prob)
-                    prob_ind = torch.Tensor((j % probs[i - 1][parent_net].shape[1]) * np.ones((prob.shape[1],)))
-                    prob = prob * probs[i - 1][parent_net][:, prob_ind.type(torch.LongTensor)] 
-                else:
-                    net_inp = inp
-                    output = self.activation(self.x_layers[i][j](net_inp))
-                    prob = self.p_layers[i][j](output)
-                    pre_probs[i].append(prob)
-                    prob = self.softmax(prob)
-                    if self.get_event_probs:
-                        if self.blockable:
-                            prob = prob * torch.prod(got_event, dim=1).view(-1, 1)
-                        else:
-                            prob = prob * got_event
-                    elif self.blockable:
-                        prob = prob * got_event[:, 1].view(-1, 1)
-        
-                outputs[i].append(output)
-                probs[i].append(prob)   
-            
+                net_inp = inp
+                output = self.activation(self.x_layers[i][j](net_inp))
+                prob = self.p_layers[i][j](output)
+                pre_probs[i].append(prob)
         for i in range(len(self.p_layers)):       
-            probs[i] = torch.cat(probs[i], dim=1)
             pre_probs[i] = torch.cat(pre_probs[i], dim=1)
-            outputs[i] = torch.cat(outputs[i], dim=1)
-            if self.get_event_probs:   
-                if self.blockable:
-                    current_prob = torch.sum(probs[i], dim=1).view(-1, 1)
-                    remaining_prob = (got_event[:, 1]).view(-1, 1)
-                    remaining_prob = remaining_prob - current_prob
-                    probs[i] = torch.cat([probs[i], remaining_prob], dim=1)
-                else: 
-                    probs[i] = torch.cat([probs[i], 1 - got_event], dim=1)
+        
+        probs = [self.softmax(pre_probs[-1])] #only use the final grain, no guidance from coarser grains
+        if self.get_event_probs: #predict if event occurred within horizon
+            if self.blockable:
+                probs[0] = probs[0] * torch.prod(got_event, dim=1).view(-1, 1)
+                current_prob = torch.sum(probs[0], dim=1).view(-1, 1)
+                remaining_prob = (got_event[:, 1]).view(-1, 1)
+                remaining_prob = remaining_prob - current_prob
+                probs[0] = torch.cat([probs[0], remaining_prob], dim=1)
+            else:
+                probs[0] = torch.cat([probs[0]*got_event, 1 - got_event], dim=1)
+        elif self.blockable:
+            probs[0] = probs[0] * got_event[:, 1].view(-1, 1)
+            
+        #here, coarse probabilities are obtained from summing over the fine grained ones (instead of being first predicted)
+        for i in range(len(self.layer_sizes)-2): 
+            num_bin = self.layer_sizes[i+1][1]
+            bin_size = probs[-1].shape[1] // self.layer_sizes[i+1][1]
+            coarse_probs = torch.zeros(num_data, num_bin)
+            for j in range(num_bin):
+                coarse_probs[:, j] = torch.sum(probs[-1][:, bin_size*j:bin_size*(j+1)], dim=1)
+            if self.get_event_probs and self.blockable:
+                current_prob = torch.sum(coarse_probs, dim=1).view(-1, 1)
+                remaining_prob = (got_event[:, 1]).view(-1, 1)
+                remaining_prob = remaining_prob - current_prob
+                coarse_probs = torch.cat([coarse_probs, remaining_prob], dim=1)
+            elif self.get_event_probs:
+                coarse_probs = torch.cat([coarse_probs, 1 - got_event], dim=1)
+            probs = [coarse_probs] + probs
          
         if return_pre:
             return pre_probs, probs 
@@ -126,14 +120,14 @@ class event_network(nn.Module):
 '''
 the overall network
 '''
-class hierarch_proposed(nn.Module):
+class direct_network(nn.Module):
     def __init__(self, layer_sizes, event_net_sizes, num_events, num_time_bins, event_groups, \
-                 extra_bin, term_events, ranks, multitask=True):
-        super(hierarch_proposed, self).__init__()
+                 extra_bin, term_events, ranks, multitask=True, dh=False):
+        super(direct_network, self).__init__()
         self.num_bins = num_time_bins
         self.num_extra_bin = extra_bin
         self.multi_task = multitask
-        self.dh = False
+        self.dh = dh
         
         self.terminal_events = term_events
         self.ranks = ranks
@@ -197,6 +191,17 @@ class hierarch_proposed(nn.Module):
                 event_out = self.event_networks[i](event_net_inp, return_pre=True)
             event_net_out.append(event_out[1])
             event_net_out_pre.append(event_out[0])
+        
+        if self.dh: #if using deephit
+            dh_out = event_net_out_pre[0][-1]
+            for i in range(1, self.num_events):
+                dh_out = torch.cat((dh_out, event_net_out_pre[i][-1]), dim=1)
+            dh_out = nn.Softmax(dim=1)(torch.Tensor(dh_out))
+            dh_out2 = []
+            dh_bins = int(dh_out.shape[1] / self.num_events)
+            for i in range(self.num_events):
+                dh_out2.append([dh_out[:, i*dh_bins:(i+1)*dh_bins]])
+            return dh_out2
             
         return event_net_out
     
@@ -212,9 +217,9 @@ class hierarch_proposed(nn.Module):
 '''
 loss function based on cif
 '''
-class hierarch_loss(nn.Module):
+class direct_loss(nn.Module):
     def __init__(self, term_event, groups, params):
-        super(hierarch_loss, self).__init__()
+        super(direct_loss, self).__init__()
         self.terminal_events = term_event
         self.rank_groups = groups
         
@@ -249,7 +254,7 @@ class hierarch_loss(nn.Module):
                     comp_risk = 1 - torch.sum(event_out[f_compare, :event_time], dim=1)
                     reference_risk = 1 - torch.sum(event_out[j, :event_time])
                     penalize = np.where(comp_risk < reference_risk)[0]
-                    penalty += torch.sum(torch.exp(-(comp_risk[penalize] - reference_risk) / sigma)) #/ time_window#* event_weights[i]
+                    penalty += torch.sum(torch.exp(-(comp_risk[penalize] - reference_risk) / sigma)) 
                     
                 #backward
                 if self.back_c:
@@ -277,13 +282,12 @@ class hierarch_loss(nn.Module):
         num_events = model.num_events
         num_time_bins = model.num_bins
         
-        #get loss for each event
-        for b in range(len(all_outputs[0])):  
+        for b in range(len(all_outputs[0])): #get loss for each granularity
             num_bin_b = (num_time_bins / (all_outputs[0][b].shape[1] - model.num_extra_bin))
             num_bin_b_total = model.num_bins // num_bin_b
             include_samples = np.arange(all_outputs[0][0].shape[0])   
             
-            for a in range(num_events):
+            for a in range(num_events): #get loss for each event
                 if b != len(all_outputs[a]) - 1 and not self.hierarch:
                     continue
                 output = all_outputs[a][b]
@@ -301,7 +305,7 @@ class hierarch_loss(nn.Module):
                     censored_ind = np.setdiff1d(censored_ind, exclude)
                 
                 event_cen = np.array([])
-                if len(model.ranks[a]) > 0:
+                if len(model.ranks[a]) > 0: #if blockable
                     had_term = np.where(all_labels[:, model.ranks[a][0]] == 1)[0]
                     event_cen = np.intersect1d(censored_ind, had_term)
                     censored_ind = np.setdiff1d(censored_ind, event_cen)
@@ -318,7 +322,7 @@ class hierarch_loss(nn.Module):
                     censored_loss = censored_loss + util.get_censored_loss(num_time_bins, model.num_extra_bin, output, censored_ind, time_to_a, 1)#, events_had_all)
                     censored_loss = censored_loss * type_weights[1] * event_weights[a]
                 
-                #event censorship
+                #event censorship, for events that can be blocked (comp/semicomp risks)
                 event_censored_loss = 0
                 if event_cen.shape[0] > 0 and len(model.ranks[a]) > 0:
                     probs = 1 - torch.sum(output[event_cen, :int(num_bin_b_total + model.num_extra_bin)], dim=1)
