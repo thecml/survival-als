@@ -13,6 +13,22 @@ def annotate_event(group, event_col):
         delta_sum_observed = group['ALSFRS_Delta'].max()
     return pd.Series({'Delta_Observed': delta_sum_observed, 'Event': event_observed})
 
+def convert_weight(row):
+    if row['Weight_Units'] in ['Kilograms', 'kg']:
+        return row['Baseline_Weight']  # Keep the value as is
+    elif row['Weight_Units'] == 'Pounds':
+        return row['Baseline_Weight'] * 0.453592  # Convert pounds to kg
+    else:
+        return None  # Handle any unexpected values
+
+def convert_height(row):
+    if row['Height_Units'] in ['Centimeters', 'cm']:
+        return row['Height']  # Keep the value as is
+    elif row['Height_Units'] == 'Inches':
+        return row['Height'] * 2.54  # Convert inches to cm
+    else:
+        return None  # Handle any unexpected values
+
 if __name__ == "__main__":
     alsfrs_fn = "PROACT_ALSFRS.csv"
     alshistory_fn = 'PROACT_ALSHISTORY.csv'
@@ -22,6 +38,8 @@ if __name__ == "__main__":
     riluzole_fn = 'PROACT_RILUZOLE.csv'
     elescorial_fn = 'PROACT_ELESCORIAL.csv'
     deathdata_fn = 'PROACT_DEATHDATA.csv'
+    demographics_fn = 'PROACT_DEMOGRAPHICS.csv'
+    vital_signs_fn = 'PROACT_VITALSIGNS.csv'
         
     alsfrs_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, alsfrs_fn))
     history_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, alshistory_fn))
@@ -31,6 +49,8 @@ if __name__ == "__main__":
     riluzole_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, riluzole_fn))
     elescorial_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, elescorial_fn))
     deathdata_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, deathdata_fn))
+    demographics_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, demographics_fn))
+    vital_signs_df = pd.read_csv(Path.joinpath(cfg.PROACT_DATA_DIR, vital_signs_fn))
 
     # Create dataframe with subjects
     df = pd.DataFrame()
@@ -48,14 +68,32 @@ if __name__ == "__main__":
         event_df = alsfrs_df.groupby('subject_id').apply(annotate_event, f'Event_{event_name}').reset_index()
         event_df = event_df.rename({'Delta_Observed': f'TTE_{event_name}', 'Event': f'Event_{event_name}'}, axis=1)
         df = pd.merge(df, event_df, on="subject_id", how='left')
+        
+    # Record total ALSFRS-R score at baseline
+    df = pd.merge(df, alsfrs_df[['subject_id', 'ALSFRS_R_Total']] \
+        .drop_duplicates(subset='subject_id'), on="subject_id", how='left')
+        
+    # Record demographics at baseline
+    demographics_df['Age'] = demographics_df['Age'] # age
+    demographics_df['Race_Caucasian'] = demographics_df['Race_Caucasian'].fillna(0)
+    sex_map = {"Male": "Male", "M": 'Male', "Female": "Female", "F": 'Female'}
+    demographics_df['Sex'] = demographics_df['Sex'].map(sex_map)
+    df = pd.merge(df, demographics_df[['subject_id', 'Age', 'Race_Caucasian', 'Sex']], on="subject_id", how='left')
+    
+    # Record vital signs
+    vital_signs_df['Weight'] = vital_signs_df.apply(convert_weight, axis=1)
+    vital_signs_df['Height'] = vital_signs_df.apply(convert_height, axis=1)
+    observed_heights = vital_signs_df.groupby('subject_id')['Height'].max().reset_index()
+    df = pd.merge(df, vital_signs_df[['subject_id', 'Weight']] \
+         .drop_duplicates(subset='subject_id'), on="subject_id", how='left') # weight
+    df = pd.merge(df, observed_heights[['subject_id', 'Height']] \
+         .drop_duplicates(subset='subject_id'), on="subject_id", how='left') # height
     
     # Record site of onset
-    filter_col = [col for col in history_df if col.startswith('Site_of_Onset__')]
-    history_df['SOO'] = history_df[filter_col].values.argmax(1)+1
-    soo_map = {0: 'Bulbar', 1: 'Limb', 2: 'LimbAndBulbar', 3: 'Other', 4: 'Other_Specify', 5: 'Spine'}
-    history_df['SOO'] = history_df['SOO'].map(soo_map)
-    history_df = history_df.drop_duplicates(subset='subject_id')
-    df = pd.merge(df, history_df[['subject_id', 'SOO']], on="subject_id", how='left')
+    soo = history_df.drop_duplicates(subset='subject_id')[['subject_id', 'Site_of_Onset']].copy(deep=True)
+    soo['Site_of_Onset'] = soo['Site_of_Onset'].str.replace('Onset: ', '', regex=False)
+    soo['Site_of_Onset'] = soo['Site_of_Onset'].str.replace('Limb and Bulbar', 'LimbAndBulbar', regex=False)
+    df = pd.merge(df, soo, on="subject_id", how='left')
         
     # Record diagnosis delta
     diagnosis_delta = history_df[['subject_id', 'Diagnosis_Delta']].copy(deep=True)
