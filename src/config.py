@@ -12,6 +12,7 @@ PLOTS_DIR = Path.joinpath(ROOT_DIR, 'plots')
 HIERARCH_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'hierarch')
 MENSA_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mensa')
 BAYESIAN_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'bayesian')
+MCD_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mcd')
 
 PATIENT_COLS = ['PSCID', 'Visit Label', 'Diagnosis', 'Age', 'Sex', 'Handedness',
                 'YearsEd', 'SymptomOnset_Date', 'Symptom_Duration',
