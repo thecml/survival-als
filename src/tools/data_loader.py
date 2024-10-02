@@ -63,17 +63,21 @@ class PROACTDataLoader(BaseDataLoader):
         df = pd.read_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed.csv', index_col=0)
         if n_samples:
             df = df.sample(n=n_samples, random_state=0)
-        columns_to_drop = [col for col in df.columns if
-                           any(substring in col for substring in ['Event', 'TTE'])]
+        label_cols = [col for col in df.columns if any(substring in col for substring in ['Event', 'TTE'])]
         df = df.loc[(df['TTE_Speech'] > 0) & (df['TTE_Swallowing'] > 0)
                     & (df['TTE_Handwriting'] > 0) & (df['TTE_Walking'] > 0)]
         df = df.loc[(df['TTE_Speech'] <= 1000) & (df['TTE_Swallowing'] <= 1000)
                     & (df['TTE_Handwriting'] <= 1000) & (df['TTE_Walking'] <= 1000)]
-        df = df.drop(df.filter(like='_Strength').columns, axis=1) # drop strength cols as they have many nans
+        df = df.dropna(subset='Handgrip_Strength') # drop rows with no handgrip test
         df['El_escorial'] = df['El_escorial'].replace('Possible', 'Probable') # Replace "Possible" with "Probable"
         df = df.drop('Race_Caucasian', axis=1) # Drop race information
+        df = df.drop('El_escorial', axis=1) # Drop el_escorial
+        df = df.drop(['Height', 'Weight'], axis=1) # drop height/weight
+        df = df.drop(columns=['ABDUCTOR_POLLICIS_BREVIS_Strength', 
+                              'SHOULDER_Strength', 
+                              'FIRST_DORSAL_INTEROSSEOUS_OF_THE_HAND_Strength'], axis=1) # drop rare strength tests
         events = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
-        self.X = df.drop(columns_to_drop, axis=1)
+        self.X = df.drop(label_cols, axis=1)
         self.columns = list(self.X.columns)
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)

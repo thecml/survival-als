@@ -1,6 +1,7 @@
 import pandas as pd
 import config as cfg
 from pathlib import Path
+import random
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning) 
@@ -12,6 +13,16 @@ def annotate_event(group, event_col):
     else:
         delta_sum_observed = group['ALSFRS_Delta'].max()
     return pd.Series({'Delta_Observed': delta_sum_observed, 'Event': event_observed})
+
+def annotate_left_censoring(row, event_name):
+    if row[f'TTE_{event_name}'] == 0: # check if left-censored
+        tte = random.randint(0, row['Diagnosis_Delta']) # occured between diagnosis and t=0
+        event_censored = True
+    else:
+        tte = row[f'TTE_{event_name}']
+        event_censored = False
+    return pd.Series({f'TTE_{event_name}': tte,
+                      f'Event_{event_name}': event_censored})
 
 def convert_weight(row):
     if row['Weight_Units'] in ['Kilograms', 'kg']:
@@ -59,6 +70,12 @@ if __name__ == "__main__":
     # Sort ALSFRS scores by id and delta
     alsfrs_df = alsfrs_df.sort_values(by=['subject_id', 'ALSFRS_Delta'])
     
+    # Record diagnosis delta
+    diagnosis_delta = history_df[['subject_id', 'Diagnosis_Delta']].copy(deep=True)
+    diagnosis_delta['Diagnosis_Delta'] = diagnosis_delta['Diagnosis_Delta'].map(abs)
+    df = pd.merge(df, diagnosis_delta, on="subject_id", how='left')
+    df = df.dropna(subset='Diagnosis_Delta')
+    
     # Annotate events
     threshold = 2
     event_cols = ['Q1_Speech', "Q2_Salivation", 'Q3_Swallowing', 'Q4_Handwriting',
@@ -71,6 +88,7 @@ if __name__ == "__main__":
         event_df = alsfrs_df.groupby('subject_id').apply(annotate_event, f'Event_{event_name}').reset_index()
         event_df = event_df.rename({'Delta_Observed': f'TTE_{event_name}', 'Event': f'Event_{event_name}'}, axis=1)
         df = pd.merge(df, event_df, on="subject_id", how='left')
+        df[[f'TTE_{event_name}', f'Event_{event_name}']] = df.apply(lambda x: annotate_left_censoring(x, event_name), axis=1)
         
     # Record total ALSFRS-R score at baseline
     df = pd.merge(df, alsfrs_df[['subject_id', 'ALSFRS_R_Total']] \
@@ -97,11 +115,6 @@ if __name__ == "__main__":
     soo['Site_of_Onset'] = soo['Site_of_Onset'].str.replace('Onset: ', '', regex=False)
     soo['Site_of_Onset'] = soo['Site_of_Onset'].str.replace('Limb and Bulbar', 'LimbAndBulbar', regex=False)
     df = pd.merge(df, soo, on="subject_id", how='left')
-        
-    # Record diagnosis delta
-    diagnosis_delta = history_df[['subject_id', 'Diagnosis_Delta']].copy(deep=True)
-    diagnosis_delta['Diagnosis_Delta'] = diagnosis_delta['Diagnosis_Delta'].map(abs)
-    df = pd.merge(df, diagnosis_delta, on="subject_id", how='left')
     
     # Record Riluzole use
     riluzole_use = riluzole_df[['subject_id', 'Subject_used_Riluzole']].copy(deep=True)

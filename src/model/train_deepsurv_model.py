@@ -1,3 +1,4 @@
+from SurvivalEVAL import mean_error
 import pandas as pd
 import numpy as np
 import config as cfg
@@ -17,6 +18,7 @@ from sota_models import DeepSurv, train_deepsurv_model, make_deepsurv_prediction
 from scipy.interpolate import interp1d
 from SurvivalEVAL.Evaluator import LifelinesEvaluator
 from utility.evaluation import global_C_index, local_C_index
+from SurvivalEVAL.Evaluations.util import KaplanMeier
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -102,10 +104,10 @@ if __name__ == "__main__":
     for i, surv_pred in enumerate(all_preds):
         n_train_samples = len(train_dict['X'])
         n_test_samples= len(test_dict['X'])
-        y_train_time = train_dict['T'][:,i]
-        y_train_event = train_dict['E'][:,i]
-        y_test_time = test_dict['T'][:,i]
-        y_test_event = test_dict['E'][:,i]
+        y_train_time = train_dict['T'][:,i].cpu().numpy()
+        y_train_event = train_dict['E'][:,i].cpu().numpy()
+        y_test_time = test_dict['T'][:,i].cpu().numpy()
+        y_test_event = test_dict['E'][:,i].cpu().numpy()
         
         lifelines_eval = LifelinesEvaluator(surv_pred.T, y_test_time, y_test_event,
                                             y_train_time, y_train_event)
@@ -115,5 +117,16 @@ if __name__ == "__main__":
         ibs = lifelines_eval.integrated_brier_score()
         d_calib = lifelines_eval.d_calibration()[0]
         
-        print(f"Evaluated {events[i]}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
-              f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}")
+
+        # Calculate KM estimate
+        km_model = KaplanMeier(y_train_time, y_train_event)
+        km_surv_prob = km_model.predict(time_bins)
+        time_idx = np.where(km_surv_prob <= 0.5, km_surv_prob, -np.inf).argmax(axis=0)
+        km_estimate = np.array(len(y_test_time)*[float(time_bins[time_idx])])
+        km_mae = mean_error(km_estimate, event_times=y_test_time, event_indicators=y_test_event,
+                            train_event_times=y_train_time, train_event_indicators=y_train_event,
+                            method='Margin')
+        
+        print(f"Evaluated E{i+1}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
+              f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}, " +
+              f"KM MAE: {round(km_mae, 3)}")
