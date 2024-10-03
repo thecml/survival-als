@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 def format_hierarchical_data_me(train_dict, valid_dict, test_dict, num_bins):
     train_event_bins = make_times_hierarchical(train_dict['T'].cpu().numpy(), num_bins=num_bins)
@@ -32,3 +33,30 @@ def make_times_hierarchical(event_times, num_bins):
     binned_event_time = np.floor((event_times - min_time) / bin_size)
     binned_event_time[binned_event_time == num_bins] = num_bins - 1
     return binned_event_time
+
+def pad_tensor(
+        logits: torch.Tensor,
+        val: float = 0,
+        where: str = 'end'
+) -> torch.Tensor:
+    """Add a column of `val` at the start of end of `input`."""
+    if len(logits.shape) == 1:
+        pad = torch.tensor([val], dtype=logits.dtype, device=logits.device)
+
+        if where == 'end':
+            return torch.cat([logits, pad])
+        elif where == 'start':
+            return torch.cat([pad, logits])
+        else:
+            raise ValueError(f"Need `where` to be 'start' or 'end', got {where}")
+    elif len(logits.shape) == 2:
+        pad = torch.zeros(logits.size(0), 1, dtype=logits.dtype, device=logits.device) + val
+
+        if where == 'end':
+            return torch.cat([logits, pad], dim=1)
+        elif where == 'start':
+            return torch.cat([pad, logits], dim=1)
+        else:
+            raise ValueError(f"Need `where` to be 'start' or 'end', got {where}")
+    else:
+        raise ValueError("The logits must be either a 1D or 2D tensor")

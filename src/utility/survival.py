@@ -12,6 +12,8 @@ from skmultilearn.model_selection import iterative_train_test_split
 from sklearn.model_selection import train_test_split
 from tools.preprocessor import Preprocessor
 
+from SurvivalEVAL.Evaluations.util import KaplanMeierArea, km_mean
+
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
     __getattr__ = dict.get
@@ -562,3 +564,112 @@ def check_and_convert(*args):
                 result = x[0]
 
     return result
+
+def compute_decensor_times(test_set, train_set, method="margin"):
+    t_train, e_train = train_set["time"].values, train_set["event"].values.astype(bool)
+    n_train = len(t_train)
+    km_train = KaplanMeierArea(t_train, e_train)
+
+    t_test, e_test = test_set["time"].values, test_set["event"].values.astype(bool)
+    n_test = len(t_test)
+
+    if method == "uncensored":
+        # drop censored samples directly
+        decensor_set = test_set.drop(test_set[~e_test].index)
+        decensor_set.reset_index(drop=True, inplace=True)
+        feature_df = decensor_set.drop(["time", "event"], axis=1)
+        t = decensor_set["time"].values
+        e = decensor_set["event"].values
+    elif method == "margin":
+        feature_df = test_set.drop(["time", "event"], axis=1)
+        best_guesses = t_test.copy().astype(float)
+        km_linear_zero = -1 / ((1 - min(km_train.survival_probabilities)) / (0 - max(km_train.survival_times)))
+        if np.isinf(km_linear_zero):
+            km_linear_zero = max(km_train.survival_times)
+
+        censor_test = t_test[~e_test]
+        conditional_mean_t = km_train.best_guess(censor_test)
+        conditional_mean_t[censor_test > km_linear_zero] = censor_test[censor_test > km_linear_zero]
+
+        best_guesses[~e_test] = conditional_mean_t
+        t = best_guesses
+        e = np.ones_like(best_guesses)
+    elif method == "PO":
+        feature_df = test_set.drop(["time", "event"], axis=1)
+        best_guesses = t_test.copy().astype(float)
+        events, population_counts = km_train.events.copy(), km_train.population_count.copy()
+        times = km_train.survival_times.copy()
+        probs = km_train.survival_probabilities.copy()
+        # get the discrete time points where the event happens, then calculate the area under those discrete time only
+        # this doesn't make any difference for step function, but it does for trapezoid rule.
+        unique_idx = np.where(events != 0)[0]
+        if unique_idx[-1] != len(events) - 1:
+            unique_idx = np.append(unique_idx, len(events) - 1)
+        times = times[unique_idx]
+        population_counts = population_counts[unique_idx]
+        events = events[unique_idx]
+        probs = probs[unique_idx]
+        sub_expect_time = km_mean(times.copy(), probs.copy())
+
+        # use the idea of dynamic programming to calculate the multiplier of the KM estimator in advances.
+        # if we add a new time point to the KM curve, the multiplier before the new time point will be
+        # 1 - event_counts / (population_counts + 1), and the multiplier after the new time point will be
+        # the same as before.
+        multiplier = 1 - events / population_counts
+        multiplier_total = 1 - events / (population_counts + 1)
+
+        for i in range(n_test):
+            if e_test[i] != 1:
+                total_multiplier = multiplier.copy()
+                insert_index = np.searchsorted(times, t_test[i], side='right')
+                total_multiplier[:insert_index] = multiplier_total[:insert_index]
+                survival_probabilities = np.cumprod(total_multiplier)
+                if insert_index == len(times):
+                    times_addition = np.append(times, t_test[i])
+                    survival_probabilities_addition = np.append(survival_probabilities, survival_probabilities[-1])
+                    total_expect_time = km_mean(times_addition, survival_probabilities_addition)
+                else:
+                    total_expect_time = km_mean(times, survival_probabilities)
+                best_guesses[i] = (n_train + 1) * total_expect_time - n_train * sub_expect_time
+
+        t = best_guesses
+        e = np.ones_like(best_guesses)
+    elif method == "sampling":
+        # repeat each sample 1000 times,
+        # for event subject, the event time will be the same for 1000 times;
+        # for censored subject, the "fake" event time will be sampled from the conditional KM curve,
+        # the conditional KM curve is the KM distribution (km_train) given we know the subject is censored at time c
+        # and make the censor bit to 1
+        feature_df = test_set.drop(["time", "event"], axis=1)
+        t = np.repeat(test_set["time"].values, 1000)
+        uniq_times = km_train.survival_times
+        surv = km_train.survival_probabilities
+        last_time = km_train.km_linear_zero
+        if uniq_times[0] != 0:
+            uniq_times = np.insert(uniq_times, 0, 0, axis=0)
+            surv = np.insert(surv, 0, 1, axis=0)
+
+        for i in range(n_test):
+            # x_i = x_test[i, :]
+            if e_test[i] != 1:
+                s_prob = km_train.predict(t_test[i])
+                cond_surv = surv / s_prob
+                cond_surv = np.clip(cond_surv, 0, 1)
+                cond_cdf = 1 - cond_surv
+                cond_pdf = np.diff(np.append(cond_cdf, 1))
+
+                # sample from the conditional KM curve
+                surrogate_t = np.random.choice(uniq_times, size=1000, p=cond_pdf)
+
+                if last_time != uniq_times[-1]:
+                    need_extension = surrogate_t == uniq_times[-1]
+                    surrogate_t[need_extension] = np.random.uniform(uniq_times[-1], last_time, need_extension.sum())
+
+                t[i * 1000:(i + 1) * 1000] = surrogate_t
+
+        e = np.ones_like(t)
+
+    else:
+        raise ValueError(f"Unknown method {method}.")
+
+    return feature_df, t, e
