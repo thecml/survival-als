@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import config as cfg
+from conformal.model import ConformalMensa
 from sota.mensa.model import MENSA
 from utility.survival import (make_stratified_split, convert_to_structured,
                               make_time_bins, make_event_times, preprocess_data)
@@ -44,45 +45,6 @@ torch.set_default_dtype(dtype)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 dataset_name = "proact"
-
-def conformalize(
-        nc,
-        datasets,
-        feature_names=[],
-        n_events=1,
-        condition=None,
-        decensor_method="margin",
-        n_quantiles=9,
-        use_train=False
-):
-    trainset = datasets[0]
-    valset = datasets[1]
-    x_test = datasets[2]['X'].cpu().numpy()
-
-    icp = IcpSurvival(nc, condition=condition,
-                      decensor_method=decensor_method,
-                      n_quantiles=n_quantiles)
-    # Fit the ICP using the proper training set, and using valset for early stopping
-    icp.fit(trainset, valset, feature_names)
-    # Calibrate the ICP using the calibration set
-    if use_train:
-        valset = pd.concat([trainset, valset], ignore_index=True)
-    
-    event_quantiles, event_quan_preds = [], []
-    for i in range(n_events): # for each event
-        event_trainset = pd.DataFrame(trainset['X'], columns=feature_names)
-        event_trainset['time'] = trainset['T'][:,i]
-        event_trainset['event'] = trainset['E'][:,i]
-        event_valset = pd.DataFrame(valset['X'], columns=feature_names)
-        event_valset['time'] = valset['T'][:,i]
-        event_valset['event'] = valset['E'][:,i]
-        icp.calibrate(data_train=event_trainset, data_val=event_valset,
-                      time_bins=time_bins, risk=i)
-        quantiles, quan_preds = icp.predict(x_test, risk=i, time_bins=time_bins)
-        event_quantiles.append(quantiles)
-        event_quan_preds.append(quan_preds)
-
-    return event_quantiles, event_quan_preds
 
 if __name__ == "__main__":
     # Load data
@@ -128,32 +90,17 @@ if __name__ == "__main__":
     time_bins = make_time_bins(train_dict['T'].cpu(), event=None, dtype=dtype).to(device)
     time_bins = torch.cat((torch.tensor([0]).to(device), time_bins))
     
-    # Make model
+    # Train model
     config = load_config(cfg.MENSA_CONFIGS_DIR, f"{dataset_name}.yaml")
-    n_epochs = config['n_epochs']
-    n_dists = config['n_dists']
-    lr = config['lr']
-    batch_size = config['batch_size']
-    layers = config['layers']
-    model = MENSA(n_features, layers=layers, n_events=n_events,
-                  n_dists=n_dists, device=device)
-    
-    # Train NC
-    error_func = OnsSideQuantileRegErrFunc()
-    nc_model = SurvivalNC(model, error_func, config=config, device=device)
+    model = ConformalMensa(n_features, time_bins=time_bins,
+                           n_events=n_events, device=device, config=config)
     datasets = [train_dict, valid_dict, test_dict]
-    quan_levels, quan_preds = conformalize(nc_model, datasets, feature_names, n_events,
-                                           decensor_method="sampling", condition=None) # sampling or margin
+    quan_levels, quan_preds = model.fit_calibrate(datasets, feature_names,
+                                                  decensor_method="sampling",
+                                                  condition=None)
     
-    # Make predictions
-    all_preds = []
-    for i in range(n_events):
-        model_preds = model.predict(test_dict['X'].to(device), time_bins, risk=i)
-        model_preds = pd.DataFrame(model_preds, columns=time_bins.cpu().numpy())
-        all_preds.append(model_preds)
-
     # Make evaluation for each event
-    for i, surv_pred in enumerate(all_preds):
+    for i in range(n_events):
         n_train_samples = len(train_dict['X'])
         n_test_samples= len(test_dict['X'])
         y_train_time = train_dict['T'][:,i].cpu().numpy()

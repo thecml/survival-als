@@ -88,7 +88,7 @@ if __name__ == "__main__":
     time_bins = make_time_bins(train_dict['T'].cpu(), event=None, dtype=dtype).to(device)
     time_bins = torch.cat((torch.tensor([0]).to(device), time_bins))
     
-    # Training loop
+    # Train model
     config = dotdict(load_config(cfg.BAYESIAN_CONFIGS_DIR, f"{dataset_name}.yaml"))
     n_dists = config['n_dists']
     layers = config['layers']
