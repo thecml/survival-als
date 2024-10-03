@@ -2,30 +2,14 @@ import pandas as pd
 import numpy as np
 import config as cfg
 from conformal.model import ConformalMensa
-from sota.mensa.model import MENSA
-from utility.survival import (make_stratified_split, convert_to_structured,
-                              make_time_bins, make_event_times, preprocess_data)
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sksurv.linear_model import CoxPHSurvivalAnalysis
-from sksurv.metrics import concordance_index_censored
-from tools.preprocessor import Preprocessor
-from torch.utils.data import DataLoader, TensorDataset
+from utility.survival import make_time_bins, preprocess_data
 import torch
 import random
-import warnings
 from tools.data_loader import get_data_loader
-from SurvivalEVAL.Evaluator import LifelinesEvaluator
-from utility.evaluation import global_C_index, local_C_index
 from utility.config import load_config
 from SurvivalEVAL.Evaluations.util import KaplanMeier
 from SurvivalEVAL import mean_error
 from SurvivalEVAL.Evaluator import QuantileRegEvaluator
-
-# Conformality
-from tools.icp import IcpSurvival
-from tools.scorer import SurvivalNC
-from utility.conformal import OnsSideQuantileRegErrFunc
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""

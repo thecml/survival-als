@@ -127,7 +127,7 @@ class CALSNICDataLoader(BaseDataLoader):
         df = pd.read_csv(f'{cfg.CALSNIC_DATA_DIR}/calsnic_processed.csv', index_col=0)
         if n_samples:
             df = df.sample(n=n_samples, random_state=0)
-        events = ['Speech', 'Swallowing', 'Handwriting', 'Walking', 'Death']
+        events = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
         self.X = df[['Visit', 'Symptom_Duration', 'CNSLS_TotalScore', 'TAP_Fingertapping_Right_avg',
                      'TAP_Fingertapping_Left_avg', 'TAP_Foottapping_Right_avg', 'Region_of_Onset',
                      'TAP_Foottapping_Left_avg', 'UMN_Right', 'UMN_Left', 'Age', 'SymptomDays']]
@@ -136,9 +136,9 @@ class CALSNICDataLoader(BaseDataLoader):
         self.cat_features = self._get_cat_features(self.X)
         times = [df[f'TTE_{event_col}'].values for event_col in events]
         events = [df[f'Event_{event_col}'].values for event_col in events]
-        self.y_t = np.stack((times[0], times[1], times[2], times[3], times[4]), axis=1)
-        self.y_e = np.stack((events[0], events[1], events[2], events[3], events[4]), axis=1)
-        self.n_events = 5
+        self.y_t = np.stack((times[0], times[1], times[2], times[3]), axis=1)
+        self.y_e = np.stack((events[0], events[1], events[2], events[3]), axis=1)
+        self.n_events = 4
         return self
     
     def split_data(self, train_size: float, valid_size: float,
@@ -148,12 +148,10 @@ class CALSNICDataLoader(BaseDataLoader):
         df['e2'] = self.y_e[:,1]
         df['e3'] = self.y_e[:,2]
         df['e4'] = self.y_e[:,3]
-        df['e5'] = self.y_e[:,4]
         df['t1'] = self.y_t[:,0]
         df['t2'] = self.y_t[:,1]
         df['t3'] = self.y_t[:,2]
         df['t4'] = self.y_t[:,3]
-        df['t5'] = self.y_t[:,4]
         df['time'] = self.y_t[:,0] # split on first time
         
         df_train, df_valid, df_test = make_stratified_split(df, stratify_colname='time', frac_train=train_size,
@@ -161,18 +159,18 @@ class CALSNICDataLoader(BaseDataLoader):
                                                             random_state=random_state)
         
         dataframes = [df_train, df_valid, df_test]
-        event_cols = ['e1', 'e2', 'e3', 'e4', 'e5']
-        time_cols = ['t1', 't2', 't3', 't4', 't5']
+        event_cols = ['e1', 'e2', 'e3', 'e4']
+        time_cols = ['t1', 't2', 't3', 't4']
         dicts = []
         for dataframe in dataframes:
             data_dict = dict()
             data_dict['X'] = dataframe.drop(event_cols + time_cols + ['time'], axis=1).values
             data_dict['E'] = np.stack([dataframe['e1'].values, dataframe['e2'].values,
-                                       dataframe['e3'].values, dataframe['e4'].values,
-                                       dataframe['e5'].values], axis=1).astype(np.int64)
+                                       dataframe['e3'].values, dataframe['e4'].values],
+                                      axis=1).astype(np.int64)
             data_dict['T'] = np.stack([dataframe['t1'].values, dataframe['t2'].values,
-                                       dataframe['t3'].values, dataframe['t4'].values,
-                                       dataframe['t5'].values], axis=1).astype(np.int64)
+                                       dataframe['t3'].values, dataframe['t4'].values],
+                                      axis=1).astype(np.int64)
             dicts.append(data_dict)
             
         return dicts[0], dicts[1], dicts[2]

@@ -93,14 +93,13 @@ if __name__ == "__main__":
     all_preds = []
     for trained_model in trained_models:
         preds, time_bins_model = make_deepsurv_prediction(trained_model, test_dict['X'].to(device),
-                                                            config=config, dtype=dtype)
+                                                          config=config, dtype=dtype)
         spline = interp1d(time_bins_model.cpu().numpy(), preds.cpu().numpy(),
                             kind='linear', fill_value='extrapolate')
         preds = pd.DataFrame(spline(time_bins.cpu().numpy()), columns=time_bins.cpu().numpy())
         all_preds.append(preds)
     
     # Make evaluation for each event
-    events = ['Speech', 'Salivation', 'Swallowing', "Handwriting", "Walking", 'Death']
     for i, surv_pred in enumerate(all_preds):
         n_train_samples = len(train_dict['X'])
         n_test_samples= len(test_dict['X'])
@@ -116,7 +115,6 @@ if __name__ == "__main__":
         ci = lifelines_eval.concordance()[0]
         ibs = lifelines_eval.integrated_brier_score()
         d_calib = lifelines_eval.d_calibration()[0]
-        
 
         # Calculate KM estimate
         km_model = KaplanMeier(y_train_time, y_train_event)
