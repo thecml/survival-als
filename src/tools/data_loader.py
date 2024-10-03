@@ -127,8 +127,6 @@ class CALSNICDataLoader(BaseDataLoader):
         df = pd.read_csv(f'{cfg.CALSNIC_DATA_DIR}/calsnic_processed.csv', index_col=0)
         if n_samples:
             df = df.sample(n=n_samples, random_state=0)
-        columns_to_drop = [col for col in df.columns if
-                           any(substring in col for substring in ['Event', 'TTE'])]
         events = ['Speech', 'Swallowing', 'Handwriting', 'Walking', 'Death']
         self.X = df[['Visit', 'Symptom_Duration', 'CNSLS_TotalScore', 'TAP_Fingertapping_Right_avg',
                      'TAP_Fingertapping_Left_avg', 'TAP_Foottapping_Right_avg', 'Region_of_Onset',

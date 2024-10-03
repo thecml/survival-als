@@ -84,7 +84,7 @@ if __name__ == '__main__':
     threshold = 2
     for event_name, event_col in zip(event_names, event_cols):
         # Assess threshold
-        df[f'Event_{event_col}'] = (df[event_col] <= threshold).astype(int)
+        df[f'Event_{event_col}'] = (df[event_col] <= threshold).astype(bool)
         
         # Adjust event indicator and time
         df[f'Event_{event_col}'] = df.groupby('PSCID')[f'Event_{event_col}'].shift(-1)
