@@ -47,7 +47,7 @@ if __name__ == '__main__':
         df = df.drop(col, axis=1).rename({f'{col}_r': f'{col}'}, axis=1)
         
     # Use only observations from ALS patients
-    df = df.loc[df['Diagnosis'] == 'ALS']
+    df = df.loc[df['Diagnosis'] == 'ALS'].reset_index(drop=True)
     
     # Do some replacing
     df['Region_of_Onset'] = df['Region_of_Onset'].str.replace('{@}', '_')
@@ -77,6 +77,12 @@ if __name__ == '__main__':
     
     # Calculate disease progression rate
     df['DiseaseProgressionRate'] = (48 - df['ALSFRS_TotalScore']) / (df['SymptomDays']/30)
+    
+    # Calculate ALSFRS subscores
+    df['ALSFRS_Bulbar_subscore'] = df['ALSFRS_1_Speech'] + df['ALSFRS_2_Salivation'] + df['ALSFRS_3_Swallowing']
+    df['ALSFRS_FineMotor_subscore'] = df['ALSFRS_4_Handwriting'] + df['ALSFRS_5_Cuttingfood&handlingutensils'] + df['ALSFRS_6_Dressing&hygiene']
+    df['ALSFRS_GrossMotor_subscore'] = df['ALSFRS_7_Turninginbed'] + df['ALSFRS_8_Walking'] + df['ALSFRS_9_Climbingstairs']
+    df['ALSFRS_Breathing_subscore'] = df['ALSFRS_10_Dyspnea'] + df['ALSFRS_11_Orthopnea'] + df['ALSFRS_12_RespiratoryInsufficiency']
 
     # Annotate events
     event_names = ['speech', 'swallowing', 'handwriting', 'walking']
@@ -105,8 +111,8 @@ if __name__ == '__main__':
     #event_df = df.loc[~df['PSCID'].isin(left_censored)]
     
     # Drop NA and reset index
-    nan_cols = [f"Event_{col}" for col in event_cols]
-    df = df.dropna(subset=nan_cols).reset_index(drop=True)
+    #nan_cols = [f"Event_{col}" for col in event_cols]
+    #df = df.dropna(subset=nan_cols).reset_index(drop=True)
     
     # Rename cols
     df = df.rename(columns={

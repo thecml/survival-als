@@ -130,7 +130,7 @@ class CALSNICDataLoader(BaseDataLoader):
         events = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
         self.X = df[['Visit', 'Symptom_Duration', 'CNSLS_TotalScore', 'TAP_Fingertapping_Right_avg',
                      'TAP_Fingertapping_Left_avg', 'TAP_Foottapping_Right_avg', 'Region_of_Onset',
-                     'TAP_Foottapping_Left_avg', 'UMN_Right', 'UMN_Left', 'Age', 'SymptomDays']]
+                     'TAP_Foottapping_Left_avg', 'UMN_Right', 'UMN_Left', 'Age', 'SymptomDays']] # Add FVC
         self.columns = list(self.X.columns)
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
