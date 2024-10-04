@@ -1,3 +1,4 @@
+import re
 import config as cfg
 from pathlib import Path
 import warnings
@@ -79,10 +80,12 @@ if __name__ == '__main__':
     df['DiseaseProgressionRate'] = (48 - df['ALSFRS_TotalScore']) / (df['SymptomDays']/30)
 
     # Annotate events
-    event_names = ['speech', 'swallowing', 'handwriting', 'walking']
-    event_cols = ['ALSFRS_1_Speech', 'ALSFRS_3_Swallowing', 'ALSFRS_4_Handwriting', 'ALSFRS_8_Walking']
+    event_cols = ['ALSFRS_1_Speech', 'ALSFRS_2_Salivation', 'ALSFRS_3_Swallowing', 'ALSFRS_4_Handwriting',
+                  'ALSFRS_5_Cuttingfood&handlingutensils', 'ALSFRS_6_Dressing&hygiene', 'ALSFRS_7_Turninginbed',
+                  'ALSFRS_8_Walking', 'ALSFRS_9_Climbingstairs', 'ALSFRS_10_Dyspnea', 'ALSFRS_11_Orthopnea',
+                  'ALSFRS_12_RespiratoryInsufficiency']
     threshold = 2
-    for event_name, event_col in zip(event_names, event_cols):
+    for event_col in event_cols:
         # Assess threshold
         df[f'Event_{event_col}'] = (df[event_col] <= threshold).astype(bool)
         
@@ -109,23 +112,14 @@ if __name__ == '__main__':
     df = df.dropna(subset=nan_cols).reset_index(drop=True)
     
     # Rename cols
-    df = df.rename(columns={
-        'Event_ALSFRS_1_Speech': 'Event_Speech',
-        'Event_ALSFRS_3_Swallowing': 'Event_Swallowing',
-        'Event_ALSFRS_4_Handwriting': 'Event_Handwriting',
-        'Event_ALSFRS_8_Walking': 'Event_Walking',
-        'TTE_ALSFRS_1_Speech': 'TTE_Speech',
-        'TTE_ALSFRS_3_Swallowing': 'TTE_Swallowing',
-        'TTE_ALSFRS_4_Handwriting': 'TTE_Handwriting',
-        'TTE_ALSFRS_8_Walking': 'TTE_Walking'})
+    df = df.rename(columns=lambda x: re.sub(r'(Event|TTE)_ALSFRS_\d+_', r'\1_', x))
     
     # Record time to death
     df['Event_Death'] = df['Status'].apply(lambda x: True if x == 'Deceased' else False)
-    df['TTE_Death'] = df.apply(lambda x: max(x['TTE_Speech'], x['TTE_Swallowing'],
-                                             x['TTE_Handwriting'], x['TTE_Walking']), axis=1)
+    tte_columns = [col for col in df.columns if col.startswith('TTE_')]
+    df['TTE_Death'] = df[tte_columns].apply(lambda x: max(x), axis=1)
     df.loc[df['Event_Death'] == True, 'TTE_Death'] = df.loc[df['Event_Death'] == True].apply(calculate_time_to_death, axis=1)
-    df.loc[df['TTE_Death'].isna(), 'TTE_Death'] = df.loc[df['TTE_Death'].isna()].apply(lambda x: max(x['TTE_Speech'], x['TTE_Swallowing'],
-                                                                                                     x['TTE_Handwriting'], x['TTE_Walking']), axis=1)
+    df.loc[df['TTE_Death'].isna(), 'TTE_Death'] = df.loc[df['TTE_Death'].isna(), tte_columns].apply(lambda x: max(x), axis=1)
         
     # Save data
     df.to_csv(f'{cfg.CALSNIC_DATA_DIR}/calsnic_processed.csv')

@@ -22,3 +22,6 @@ class _TFColor(object):
             self.gray,
         ][i % 9]
 TFColor = _TFColor()
+
+def load_tf_color():
+    return TFColor
