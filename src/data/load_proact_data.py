@@ -127,12 +127,10 @@ if __name__ == "__main__":
     
     # Record time of death
     df = pd.merge(df, deathdata_df, on="subject_id", how='left')
-    df = df.rename({'Subject_Died': 'Event_Death',
-                    'Death_Days': 'TTE_Death'}, axis=1)
+    df = df.rename({'Subject_Died': 'Event_Death', 'Death_Days': 'TTE_Death'}, axis=1)
     df['Event_Death'] = df['Event_Death'].fillna(False)
-    df.loc[df['TTE_Death'].isna(), 'TTE_Death'] = df.loc[df['TTE_Death'].isna()].apply(lambda x: max(x['TTE_Speech'], x['TTE_Swallowing'],
-                                                                                                     x['TTE_Handwriting'], x['TTE_Walking'],
-                                                                                                     x['TTE_Salivation']), axis=1)
+    tte_columns = [col for col in df.columns if col.startswith('TTE_')]
+    df.loc[df['TTE_Death'].isna(), 'TTE_Death'] = df.loc[df['TTE_Death'].isna(), tte_columns].apply(lambda x: max(x), axis=1)
     df['Event_Death'] = df['Event_Death'].replace({'Yes': True, 'No': False})
     
     # Record FVC
