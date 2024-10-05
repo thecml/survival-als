@@ -76,13 +76,17 @@ if __name__ == "__main__":
     df = pd.merge(df, diagnosis_delta, on="subject_id", how='left')
     df = df.dropna(subset='Diagnosis_Delta')
     
+    # Calculate ALSFRS subscores
+    alsfrs_df['Q5_Cuttingfood'] = alsfrs_df['Q5a_Cutting_without_Gastrostomy'].fillna(alsfrs_df['Q5b_Cutting_with_Gastrostomy'])
+    alsfrs_df['ALSFRS_Bulbar_subscore'] = alsfrs_df['Q1_Speech'] + alsfrs_df['Q2_Salivation'] + alsfrs_df['Q3_Swallowing']
+    alsfrs_df['ALSFRS_FineMotor_subscore'] = alsfrs_df['Q4_Handwriting'] + alsfrs_df['Q5_Cuttingfood'] + alsfrs_df['Q6_Dressing_and_Hygiene']
+    alsfrs_df['ALSFRS_GrossMotor_subscore'] = alsfrs_df['Q7_Turning_in_Bed'] + alsfrs_df['Q8_Walking'] + alsfrs_df['Q9_Climbing_Stairs']
+    alsfrs_df['ALSFRS_Breathing_subscore'] = alsfrs_df['R_1_Dyspnea'] + alsfrs_df['R_2_Orthopnea'] + alsfrs_df['R_3_Respiratory_Insufficiency']
+    event_cols = ['ALSFRS_Bulbar_subscore', 'ALSFRS_FineMotor_subscore', 'ALSFRS_GrossMotor_subscore', 'ALSFRS_Breathing_subscore']
+    
     # Annotate events
-    threshold = 2
-    event_cols = ['Q1_Speech', "Q2_Salivation", 'Q3_Swallowing', 'Q4_Handwriting',
-                  'Q5a_Cutting_without_Gastrostomy', 'Q5b_Cutting_with_Gastrostomy',
-                  'Q6_Dressing_and_Hygiene', 'Q7_Turning_in_Bed', 'Q8_Walking',
-                  'Q9_Climbing_Stairs', 'Q10_Respiratory']
-    event_names = [col.split('_', 1)[1] for col in event_cols]
+    threshold = 6
+    event_names = ['Bulbar', 'FineMotor', 'GrossMotor', 'Breathing']
     for event_name, event_col in zip(event_names, event_cols):
         alsfrs_df[f'Event_{event_name}'] = (alsfrs_df[event_col] <= threshold).astype(int)
         event_df = alsfrs_df.groupby('subject_id').apply(annotate_event, f'Event_{event_name}').reset_index()

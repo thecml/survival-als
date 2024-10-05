@@ -86,19 +86,18 @@ if __name__ == '__main__':
     df['ALSFRS_Breathing_subscore'] = df['ALSFRS_10_Dyspnea'] + df['ALSFRS_11_Orthopnea'] + df['ALSFRS_12_RespiratoryInsufficiency']
 
     # Annotate events
-    event_cols = ['ALSFRS_1_Speech', 'ALSFRS_2_Salivation', 'ALSFRS_3_Swallowing', 'ALSFRS_4_Handwriting',
-                  'ALSFRS_5_Cuttingfood&handlingutensils', 'ALSFRS_6_Dressing&hygiene', 'ALSFRS_7_Turninginbed',
-                  'ALSFRS_8_Walking', 'ALSFRS_9_Climbingstairs', 'ALSFRS_10_Dyspnea', 'ALSFRS_11_Orthopnea',
-                  'ALSFRS_12_RespiratoryInsufficiency']
-    threshold = 2
+    event_cols = ['ALSFRS_Bulbar_subscore', 'ALSFRS_FineMotor_subscore',
+                  'ALSFRS_GrossMotor_subscore', 'ALSFRS_Breathing_subscore']
+    threshold = 10
     for event_col in event_cols:
-        # Assess threshold
         df[f'Event_{event_col}'] = (df[event_col] <= threshold).astype(bool)
-        
-        # Adjust event indicator and time
         df[f'Event_{event_col}'] = df.groupby('PSCID')[f'Event_{event_col}'].shift(-1)
         df[f'TTE_{event_col}']  = df.groupby('PSCID')['Visit_Diff'].shift(-1)
         
+    # Do some renaming
+    df = df.rename(columns=lambda x: x.replace('Event_ALSFRS_', 'Event_') \
+                   .replace('TTE_ALSFRS_', 'TTE_').replace('_subscore', ''))
+
     # Use only first visit
     #df = df.loc[df['Visit Label'] == 'Visit 1']
     
@@ -114,8 +113,8 @@ if __name__ == '__main__':
     #event_df = df.loc[~df['PSCID'].isin(left_censored)]
     
     # Drop NA and reset index
-    #nan_cols = [f"Event_{col}" for col in event_cols]
-    #df = df.dropna(subset=nan_cols).reset_index(drop=True)
+    event_cols = ['Event_Bulbar', 'Event_FineMotor', 'Event_GrossMotor', 'Event_Breathing']
+    df = df.dropna(subset=event_cols).reset_index(drop=True)
     
     # Rename cols
     df = df.rename(columns=lambda x: re.sub(r'(Event|TTE)_ALSFRS_\d+_', r'\1_', x))
