@@ -41,7 +41,8 @@ if __name__ == '__main__':
     df = df.sort_values(by=['PSCID', 'Visit Label']).reset_index(drop=True)
     
     # Repeat constant values
-    constant_cols = ['Handedness', 'YearsEd', 'Diagnosis', 'Sex', 'Age', 'SymptomOnset_Date', 'Region_of_Onset']
+    constant_cols = ['Handedness', 'YearsEd', 'Diagnosis', 'Sex', 'Age',
+                     'SymptomOnset_Date', 'Region_of_Onset', 'MedicalExamination_Riluzole']
     for col in constant_cols:
         new_col = df.groupby('PSCID')[col].apply(lambda x: x.bfill().ffill()).droplevel(level=1)
         df = df.join(new_col, on='PSCID', rsuffix='_r').drop_duplicates(subset=['PSCID', 'Visit Label'])
@@ -70,6 +71,12 @@ if __name__ == '__main__':
     df['UMN_Right'] = df['UMN_Right'].astype('Int64')
     df['UMN_Left'] = df['UMN_Left'].astype('Int64')
     
+    # Record Riluzole use
+    df = df.rename(columns={'MedicalExamination_Riluzole': 'Subject_used_Riluzole'})
+    df['Subject_used_Riluzole'] = df['Subject_used_Riluzole'].replace('no', 'No')
+    df['Subject_used_Riluzole'] = df['Subject_used_Riluzole'].replace('yes', 'Yes')
+    df['Subject_used_Riluzole'] = df['Subject_used_Riluzole'].fillna('Unknown')
+    
     # Calculate days between visitations
     df['Visit_Diff'] = df.groupby(['PSCID'])['Visit_Date'].diff().dt.days.fillna(0).astype(int)
     
@@ -88,7 +95,7 @@ if __name__ == '__main__':
     # Annotate events
     event_cols = ['ALSFRS_Bulbar_subscore', 'ALSFRS_FineMotor_subscore',
                   'ALSFRS_GrossMotor_subscore', 'ALSFRS_Breathing_subscore']
-    threshold = 10
+    threshold = 6
     for event_col in event_cols:
         df[f'Event_{event_col}'] = (df[event_col] <= threshold).astype(bool)
         df[f'Event_{event_col}'] = df.groupby('PSCID')[f'Event_{event_col}'].shift(-1)

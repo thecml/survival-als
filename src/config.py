@@ -15,8 +15,8 @@ BAYESIAN_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'bayesian')
 MCD_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mcd')
 
 PATIENT_COLS = ['PSCID', 'Visit Label', 'Diagnosis', 'Age', 'Sex', 'Handedness',
-                'YearsEd', 'SymptomOnset_Date', 'Symptom_Duration',
-                'Visit_details', 'Visit_Date', 'Region_of_Onset',
+                'MedicalExamination_Riluzole', 'YearsEd', 'SymptomOnset_Date',
+                'Symptom_Duration', 'Visit_details', 'Visit_Date', 'Region_of_Onset',
                 'CNSLS_Date', 'CNSLS_TotalScore']
 SURVIVAL_COLS = ['Status', 'Date of death', 'Cause of death']
 ALSFRS_COLS = ["ALSFRS_Date", "ALSFRS_1_Speech", "ALSFRS_2_Salivation", "ALSFRS_3_Swallowing",
