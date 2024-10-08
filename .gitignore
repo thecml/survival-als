@@ -9,8 +9,14 @@ __pycache__/
 # Data
 data/*
 
+# Plots
+plots/*
+
 # Results
 results/*
+
+# Model
+models/*
 
 # Data
 data/Final_Data_sheet_July2023_HenkJan.xlsx

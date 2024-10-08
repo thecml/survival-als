@@ -10,6 +10,9 @@ from dataclasses import InitVar, dataclass, field
 from sklearn.utils import shuffle
 from skmultilearn.model_selection import iterative_train_test_split
 from sklearn.model_selection import train_test_split
+from tools.preprocessor import Preprocessor
+
+from SurvivalEVAL.Evaluations.util import KaplanMeierArea, km_mean
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -19,6 +22,144 @@ class dotdict(dict):
 
 Numeric = Union[float, int, bool]
 NumericArrayLike = Union[List[Numeric], Tuple[Numeric], np.ndarray, pd.Series, pd.DataFrame, torch.Tensor]
+
+def cox_survival(
+        baseline_survival: torch.Tensor,
+        linear_predictor: torch.Tensor,
+        dtype: torch.dtype
+) -> torch.Tensor:
+    """
+    Calculate the individual survival distributions based on the baseline survival curves and the liner prediction values.
+    :param baseline_survival: (n_time_bins, )
+    :param linear_predictor: (n_samples, n_data)
+    :return:
+    The invidual survival distributions. shape = (n_samples, n_time_bins)
+    """
+    n_sample = linear_predictor.shape[0]
+    n_data = linear_predictor.shape[1]
+    risk_score = torch.exp(linear_predictor)
+    survival_curves = torch.empty((n_sample, n_data, baseline_survival.shape[0]), dtype=dtype).to(linear_predictor.device)
+    for i in range(n_sample):
+        for j in range(n_data):
+            survival_curves[i, j, :] = torch.pow(baseline_survival, risk_score[i, j])
+    return survival_curves
+
+def cox_nll(
+        risk_pred: torch.Tensor,
+        precision: torch.Tensor,
+        log_var: torch.Tensor,
+        true_times: torch.Tensor,
+        true_indicator: torch.Tensor,
+        model: torch.nn.Module,
+        C1: float
+) -> torch.Tensor:
+    """Computes the negative log-likelihood of a batch of model predictions.
+
+    Parameters
+    ----------
+    risk_pred : torch.Tensor, shape (num_samples, )
+        Risk prediction from Cox-based model. It means the relative hazard ratio: \beta * x.
+    true_times : torch.Tensor, shape (num_samples, )
+        Tensor with the censor/event time.
+    true_indicator : torch.Tensor, shape (num_samples, )
+        Tensor with the censor indicator.
+    model
+        PyTorch Module with at least `MTLR` layer.
+    C1
+        The L2 regularization strength.
+
+    Returns
+    -------
+    torch.Tensor
+        The negative log likelihood.
+    """
+    eps = 1e-20
+    risk_pred = risk_pred.reshape(-1, 1)
+    true_times = true_times.reshape(-1, 1)
+    true_indicator = true_indicator.reshape(-1, 1)
+    mask = torch.ones(true_times.shape[0], true_times.shape[0]).to(true_times.device)
+    mask[(true_times.T - true_times) > 0] = 0
+    max_risk = risk_pred.max()
+    log_loss = torch.exp(risk_pred - max_risk) * mask
+    log_loss = torch.sum(log_loss, dim=0)
+    log_loss = torch.log(log_loss + eps).reshape(-1, 1) + max_risk
+    # Sometimes in the batch we got all censoring data, so the denominator gets 0 and throw nan.
+    # Solution: Consider increase the batch size. Afterall the nll should performed on the whole dataset.
+    # Based on equation 2&3 in https://arxiv.org/pdf/1606.00931.pdf
+    neg_log_loss = -torch.sum(precision * (risk_pred - log_loss) * true_indicator) / torch.sum(true_indicator) + log_var
+
+    # L2 regularization
+    for k, v in model.named_parameters():
+        if "weight" in k:
+            neg_log_loss += C1/2 * torch.norm(v, p=2)
+
+    return neg_log_loss
+
+def calculate_baseline_hazard(
+        logits: torch.Tensor,
+        time: torch.Tensor,
+        event: torch.Tensor
+) -> (torch.Tensor, torch.Tensor, torch.Tensor):
+    """
+    Calculate the baseline cumulative hazard function and baseline survival function using Breslow estimator
+    :param logits: logit outputs calculated from the Cox-based network using training data.
+    :param time: Survival time of training data.
+    :param event: Survival indicator of training data.
+    :return:
+    uniq_times: time bins correspond of the baseline hazard/survival.
+    cum_baseline_hazard: cumulative baseline hazard
+    baseline_survival: baseline survival curve.
+    """
+    risk_score = torch.exp(logits)
+    order = torch.argsort(time)
+    risk_score = risk_score[order]
+    uniq_times, n_events, n_at_risk, _ = compute_unique_counts(event, time, order)
+
+    divisor = torch.empty(n_at_risk.shape, dtype=torch.float, device=n_at_risk.device)
+    value = torch.sum(risk_score)
+    divisor[0] = value
+    k = 0
+    for i in range(1, len(n_at_risk)):
+        d = n_at_risk[i - 1] - n_at_risk[i]
+        value -= risk_score[k:(k + d)].sum()
+        k += d
+        divisor[i] = value
+
+    assert k == n_at_risk[0] - n_at_risk[-1]
+
+    hazard = n_events / divisor
+    # Make sure the survival curve always starts at 1
+    if 0 not in uniq_times:
+        uniq_times = torch.cat([torch.tensor([0]).to(uniq_times.device), uniq_times], 0)
+        hazard = torch.cat([torch.tensor([0]).to(hazard.device), hazard], 0)
+    # TODO: torch.cumsum with cuda array will generate a non-monotonic array. Need to update when torch fix this bug
+    # See issue: https://github.com/pytorch/pytorch/issues/21780
+    baseline_hazard = hazard.cpu()
+    cum_baseline_hazard = torch.cumsum(hazard.cpu(), dim=0).to(hazard.device)
+    baseline_survival = torch.exp(- cum_baseline_hazard)
+    if baseline_survival.isinf().any():
+        print(f"Baseline survival contains \'inf\', need attention. \n"
+              f"Baseline survival distribution: {baseline_survival}")
+        last_zero = torch.where(baseline_survival == 0)[0][-1].item()
+        baseline_survival[last_zero + 1:] = 0
+    baseline_survival = make_monotonic(baseline_survival)
+    return uniq_times, cum_baseline_hazard, baseline_survival
+
+'''
+Impute missing values and scale
+'''
+def preprocess_data(X_train, X_valid, X_test, cat_features,
+                    num_features, as_array=False) \
+    -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    preprocessor = Preprocessor(cat_feat_strat='mode', num_feat_strat='mean', scaling_strategy="standard")
+    transformer = preprocessor.fit(X_train, cat_feats=cat_features, num_feats=num_features,
+                                   one_hot=True, fill_value=-1)
+    X_train = transformer.transform(X_train)
+    X_valid = transformer.transform(X_valid)
+    X_test = transformer.transform(X_test)
+    if as_array:
+        return (np.array(X_train), np.array(X_valid), np.array(X_test))
+    return (X_train, X_valid, X_test)
 
 def split_time_event(y):
     y_t = np.array(y['TTE'])
@@ -108,7 +249,7 @@ def make_stratified_split(
     elif stratify_colname == 'time':
         stra_lab = df[stratify_colname]
         bins = np.linspace(start=stra_lab.min(), stop=stra_lab.max(), num=20)
-        stra_lab = np.digitize(stra_lab, bins, right=True)
+        stra_lab = np.digitize(stra_lab, bins, right=True).reshape(-1, 1)
     elif stratify_colname == "both":
         t = df["time"]
         bins = np.linspace(start=t.min(), stop=t.max(), num=20)
@@ -239,7 +380,8 @@ def make_time_bins(
         times: NumericArrayLike,
         num_bins: Optional[int] = None,
         use_quantiles: bool = True,
-        event: Optional[NumericArrayLike] = None
+        event: Optional[NumericArrayLike] = None,
+        dtype=torch.float64
 ) -> torch.Tensor:
     """
     Courtesy of https://ieeexplore.ieee.org/document/10158019
@@ -279,7 +421,7 @@ def make_time_bins(
         bins = np.unique(np.quantile(times, np.linspace(0, 1, num_bins)))
     else:
         bins = np.linspace(times.min(), times.max(), num_bins)
-    bins = torch.tensor(bins, dtype=torch.float)
+    bins = torch.tensor(bins, dtype=dtype)
     return bins
 
 def compute_unique_counts(
@@ -423,204 +565,111 @@ def check_and_convert(*args):
 
     return result
 
-class Survival:
+def compute_decensor_times(test_set, train_set, method="margin"):
+    t_train, e_train = train_set["time"].values, train_set["event"].values.astype(bool)
+    n_train = len(t_train)
+    km_train = KaplanMeierArea(t_train, e_train)
 
-    def __init__(self):
-        pass
-    
-    @staticmethod
-    def sanitize_survival_data (
-            surv_preds: pd.DataFrame, 
-            cvi: np.ndarray, 
-            upper: float, 
-            fix_ending: bool = False
-        ) -> (pd.DataFrame, np.ndarray):
+    t_test, e_test = test_set["time"].values, test_set["event"].values.astype(bool)
+    n_test = len(t_test)
 
-        """
-        Sanitizes the survival data by fixing the ending of the survival function,
-        replacing infs with 0, and removing rows where the first prediction is less than 0.5.
+    if method == "uncensored":
+        # drop censored samples directly
+        decensor_set = test_set.drop(test_set[~e_test].index)
+        decensor_set.reset_index(drop=True, inplace=True)
+        feature_df = decensor_set.drop(["time", "event"], axis=1)
+        t = decensor_set["time"].values
+        e = decensor_set["event"].values
+    elif method == "margin":
+        feature_df = test_set.drop(["time", "event"], axis=1)
+        best_guesses = t_test.copy().astype(float)
+        km_linear_zero = -1 / ((1 - min(km_train.survival_probabilities)) / (0 - max(km_train.survival_times)))
+        if np.isinf(km_linear_zero):
+            km_linear_zero = max(km_train.survival_times)
 
-        Parameters:
-        - surv_preds (pandas.DataFrame): The survival predictions.
-        - cvi (numpy.ndarray): The cross-validation indices.
-        - upper (float): The upper limit for fixing the ending of the survival function.
-        - fix_ending (bool): Whether to fix the ending of the survival function. Default is False.
+        censor_test = t_test[~e_test]
+        conditional_mean_t = km_train.best_guess(censor_test)
+        conditional_mean_t[censor_test > km_linear_zero] = censor_test[censor_test > km_linear_zero]
 
-        Returns:
-        - sanitized_surv_preds (pandas.DataFrame): The sanitized survival predictions.
-        - sanitized_cvi (numpy.ndarray): The sanitized cross-validation indices.
-        """
+        best_guesses[~e_test] = conditional_mean_t
+        t = best_guesses
+        e = np.ones_like(best_guesses)
+    elif method == "PO":
+        feature_df = test_set.drop(["time", "event"], axis=1)
+        best_guesses = t_test.copy().astype(float)
+        events, population_counts = km_train.events.copy(), km_train.population_count.copy()
+        times = km_train.survival_times.copy()
+        probs = km_train.survival_probabilities.copy()
+        # get the discrete time points where the event happens, then calculate the area under those discrete time only
+        # this doesn't make any difference for step function, but it does for trapezoid rule.
+        unique_idx = np.where(events != 0)[0]
+        if unique_idx[-1] != len(events) - 1:
+            unique_idx = np.append(unique_idx, len(events) - 1)
+        times = times[unique_idx]
+        population_counts = population_counts[unique_idx]
+        events = events[unique_idx]
+        probs = probs[unique_idx]
+        sub_expect_time = km_mean(times.copy(), probs.copy())
 
-        # Fix ending of surv function
-        if fix_ending:
-            surv_preds.replace(np.nan, 1e-1000, inplace=True)
-            surv_preds[math.ceil(upper)] = 1e-1000
-            surv_preds.reset_index(drop=True, inplace=True)
-        
-        # Replace infs with 0
-        surv_preds[~np.isfinite(surv_preds)] = 0
+        # use the idea of dynamic programming to calculate the multiplier of the KM estimator in advances.
+        # if we add a new time point to the KM curve, the multiplier before the new time point will be
+        # 1 - event_counts / (population_counts + 1), and the multiplier after the new time point will be
+        # the same as before.
+        multiplier = 1 - events / population_counts
+        multiplier_total = 1 - events / (population_counts + 1)
 
-        # Remove rows where first pred is <0.5
-        bad_idx = surv_preds[surv_preds.iloc[:,0] < 0.5].index
-        sanitized_surv_preds = surv_preds.drop(bad_idx).reset_index(drop=True)
-        sanitized_cvi = np.delete(cvi, bad_idx)
-        
-        return sanitized_surv_preds, sanitized_cvi
-    
-    @staticmethod
-    def predict_survival_function(
-            model, 
-            X_test: pd.DataFrame, 
-            times: np.ndarray,
-            n_post_samples=100 # for MCD
-        ) -> (pd.DataFrame):
+        for i in range(n_test):
+            if e_test[i] != 1:
+                total_multiplier = multiplier.copy()
+                insert_index = np.searchsorted(times, t_test[i], side='right')
+                total_multiplier[:insert_index] = multiplier_total[:insert_index]
+                survival_probabilities = np.cumprod(total_multiplier)
+                if insert_index == len(times):
+                    times_addition = np.append(times, t_test[i])
+                    survival_probabilities_addition = np.append(survival_probabilities, survival_probabilities[-1])
+                    total_expect_time = km_mean(times_addition, survival_probabilities_addition)
+                else:
+                    total_expect_time = km_mean(times, survival_probabilities)
+                best_guesses[i] = (n_train + 1) * total_expect_time - n_train * sub_expect_time
 
-        """
-        Predicts the survival function for given test data using the specified model.
+        t = best_guesses
+        e = np.ones_like(best_guesses)
+    elif method == "sampling":
+        # repeat each sample 1000 times,
+        # for event subject, the event time will be the same for 1000 times;
+        # for censored subject, the "fake" event time will be sampled from the conditional KM curve,
+        # the conditional KM curve is the KM distribution (km_train) given we know the subject is censored at time c
+        # and make the censor bit to 1
+        feature_df = test_set.drop(["time", "event"], axis=1)
+        t = np.repeat(test_set["time"].values, 1000)
+        uniq_times = km_train.survival_times
+        surv = km_train.survival_probabilities
+        last_time = km_train.km_linear_zero
+        if uniq_times[0] != 0:
+            uniq_times = np.insert(uniq_times, 0, 0, axis=0)
+            surv = np.insert(surv, 0, 1, axis=0)
 
-        Parameters:
-        - model (pd.DataFrame): The survival model used for prediction.
-        - X_test (pd.DataFrame): The test data.
-        - times (np.ndarray): The time points at which to predict the survival function.
+        for i in range(n_test):
+            # x_i = x_test[i, :]
+            if e_test[i] != 1:
+                s_prob = km_train.predict(t_test[i])
+                cond_surv = surv / s_prob
+                cond_surv = np.clip(cond_surv, 0, 1)
+                cond_cdf = 1 - cond_surv
+                cond_pdf = np.diff(np.append(cond_cdf, 1))
 
-        Returns:
-        - surv_prob (pd.DataFrame): The predicted survival probabilities at each time point.
-        """
+                # sample from the conditional KM curve
+                surrogate_t = np.random.choice(uniq_times, size=1000, p=cond_pdf)
 
-        # lower, upper = np.percentile(y_test[y_test.dtype.names[1]], [10, 90])
-        # times = np.arange(np.ceil(lower + 1), np.floor(upper - 1), dtype=int)
-        if model.__class__.__name__ == 'WeibullAFTFitter':
-            surv_prob = model.predict_survival_function(X_test).T
-            return surv_prob
-        elif model.__class__.__name__ == 'DeepCoxPH' or model.__class__.__name__ == 'DeepSurvivalMachines':
-            surv_prob = pd.DataFrame(model.predict_survival(X_test, t=list(times)), columns=times)
-            return surv_prob
-        elif model.__class__.__name__ == 'MCD':
-            surv_prob = pd.DataFrame(np.mean(model.predict_survival(X_test, event_times=times, n_post_samples=n_post_samples), axis=0))
-            return surv_prob
-        else:
-            surv_prob = pd.DataFrame(np.row_stack([fn(times) for fn in model.predict_survival_function(X_test)]), columns=times)
-            return surv_prob
-    
-    @staticmethod
-    def predict_hazard_function (
-            model, 
-            X_test: pd.DataFrame, 
-            times: np.ndarray
-        ) -> (pd.DataFrame):
+                if last_time != uniq_times[-1]:
+                    need_extension = surrogate_t == uniq_times[-1]
+                    surrogate_t[need_extension] = np.random.uniform(uniq_times[-1], last_time, need_extension.sum())
 
-        """
-        Predicts the hazard function for a given model and test data.
+                t[i * 1000:(i + 1) * 1000] = surrogate_t
 
-        Parameters:
-        - model (pd.DataFrame): The survival model used for prediction.
-        - X_test (pd.DataFrame): The test data.
-        - times (np.ndarray): The time points at which to predict the hazard function.
+        e = np.ones_like(t)
 
-        Returns:
-        - risk_pred (pd.DataFrame): The predicted hazards at each time point.
-        """
+    else:
+        raise ValueError(f"Unknown method {method}.")
 
-        if model.__class__.__name__ == 'WeibullAFTFitter':
-            surv_prob = model.predict_cumulative_hazard(X_test)
-            return surv_prob
-        elif model.__class__.__name__ == 'DeepCoxPH' or model.__class__.__name__ == 'DeepSurvivalMachines':
-            risk_pred = model.predict_risk(X_test, t= times).flatten()
-            return risk_pred
-        elif model.__class__.__name__ == 'MCD':
-            risk_pred = np.mean(model.predict_risk(X_test, event_times= times), axis= 0).flatten()
-            return risk_pred             
-        else:
-            surv_prob = np.row_stack([fn(times) for fn in model.predict_cumulative_hazard_function(X_test)])
-            return pd.DataFrame(surv_prob, columns=times)
-    
-    @staticmethod
-    def sanitize_surv_functions_and_test_data (
-            model, 
-            X_test: pd.DataFrame, 
-            times: np.ndarray, 
-            y_test: np.ndarray
-        ) -> (pd.DataFrame, pd.DataFrame):
-
-        """
-        Sanitizes the survival functions and test data by excluding certain elements based on the predicted survival probabilities.
-
-        Parameters:
-        - self (object): The instance of the class.
-        - model (object): The predictive model.
-        - X_test (array-like): The test data.
-        - times (array-like): The event times.
-        - y_test (array-like): The test labels.
-
-        Returns:
-        - sanitized_PDF_survival_probabilities (DataFrame): The sanitized survival probabilities.
-        - sanitized_y_test (DataFrame): The sanitized data test.
-        """
-
-        # Init the element to sanitize
-        PDF_survival_probabilities = model.predict_survival(X_test, event_times= times)
-        sanitized_PDF_survival_probabilities = []
-        sanitized_y_test = y_test
-
-        # Find the bearings to exclude
-        excluded_indexes = self.find_bearing_to_exclude (PDF_survival_probabilities)
-
-        # Sanitize the bearings in a second moment to keep the array shape consistent (same size for each dimension element)
-        sanitized_PDF_survival_probabilities = self.sanitize_PDF_survival_probabilities (PDF_survival_probabilities, excluded_indexes)
-
-        # Sanitize the y_test
-        for idx in excluded_indexes:
-            sanitized_y_test = np.delete(sanitized_y_test, idx)
-
-        return sanitized_PDF_survival_probabilities, sanitized_y_test
-
-    def find_bearing_to_exclude (
-            PDF_survival_probabilities: list
-        ) -> list:
-
-        """
-        Finds the bearings to exclude based on the given survival probabilities.
-
-        Parameters:
-        - PDF_survival_probabilities (list): A list of survival probabilities for each bearing.
-
-        Returns:
-        - excluded_indexes (list): A list of bearing indexes to exclude after a a given condition.
-        """
-
-        excluded_indexes = []
-        CONDITION = 0.5
-
-        for PDF_survival_probability in PDF_survival_probabilities:
-            for bearing_num, survival_probability in enumerate(PDF_survival_probability):
-                if survival_probability [0] < CONDITION and bearing_num not in excluded_indexes:
-                    excluded_indexes.append(bearing_num)
-
-        return excluded_indexes
-
-    def sanitize_PDF_survival_probabilities(
-            PDF_survival_probabilities: list, 
-            excluded_indexes: list
-        ) -> list:
-
-        """
-        Sanitizes the PDF_survival_probabilities list by excluding the survival probabilities at the specified excluded_indexes.
-
-        Args:
-        - PDF_survival_probabilities (list): A list of lists representing the PDF survival probabilities.
-        - excluded_indexes (list): A list of indexes to be excluded from the PDF_survival_probabilities.
-
-        Returns:
-        - sanitized_PDF_survival_probabilities (list): A sanitized version of the PDF_survival_probabilities list, where the survival probabilities at the excluded_indexes are removed.
-        """
-
-        sanitized_PDF_survival_probabilities = []
-
-        for PDF_survival_probability in PDF_survival_probabilities:
-            sanitized_survival_probabilities = []
-            for bearing_num, survival_probability in enumerate(PDF_survival_probability):
-                if bearing_num not in excluded_indexes:
-                    sanitized_survival_probabilities.append(survival_probability)
-            sanitized_PDF_survival_probabilities.append(sanitized_survival_probabilities)
-
-        return sanitized_PDF_survival_probabilities
+    return feature_df, t, e

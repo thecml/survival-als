@@ -11,8 +11,6 @@ scikit-survival~=0.21.0
 scikit-learn~=1.2.2
 rpy2==3.5.1
 setuptools~=52.0.0
-tensorflow==2.16.1
-tensorflow-probability[tf]==0.24.0
 scikit-multilearn==0.2.0
 lifelines==0.28.0
 torch==1.13.1
@@ -20,3 +18,4 @@ torchtuples==0.2.2
 torchvision==0.14.1
 tqdm==4.66.2
 pycox==0.2.2
+SurvivalEVAL==0.3.0
