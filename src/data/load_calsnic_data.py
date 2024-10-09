@@ -33,6 +33,8 @@ if __name__ == '__main__':
     # Convert empty strings to NaN
     df['UMN_Right'] = df['UMN_Right'].replace(to_replace=' ', value=np.nan, regex=True)
     df['UMN_Left'] = df['UMN_Left'].replace(to_replace=' ', value=np.nan, regex=True)
+    df['LMN_Right'] = df['LMN_Right'].replace(to_replace=' ', value=np.nan, regex=True)
+    df['LMN_Left'] = df['LMN_Left'].replace(to_replace=' ', value=np.nan, regex=True)
     
     # Drop rows without ALSFRS
     df = df[df['ALSFRS_Date'].notna()].copy(deep=True)
@@ -70,6 +72,8 @@ if __name__ == '__main__':
     df['ALSFRS_Date'] = pd.to_datetime(df['ALSFRS_Date'], format="%Y-%m-%d")
     df['UMN_Right'] = df['UMN_Right'].astype('Int64')
     df['UMN_Left'] = df['UMN_Left'].astype('Int64')
+    df['LMN_Right'] = df['LMN_Right'].astype('Int64')
+    df['LMN_Left'] = df['LMN_Left'].astype('Int64')
     
     # Record Riluzole use
     df = df.rename(columns={'MedicalExamination_Riluzole': 'Subject_used_Riluzole'})

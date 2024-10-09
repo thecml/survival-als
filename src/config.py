@@ -28,7 +28,7 @@ ALSFRS_COLS = ["ALSFRS_Date", "ALSFRS_1_Speech", "ALSFRS_2_Salivation", "ALSFRS_
 TAP_COLS = ["TAP_Trial1RightFinger", "TAP_Trial1LeftFinger", "TAP_Trial2RightFinger", "TAP_Trial2leftFinger",
             "TAP_Trial1RightFoot", "TAP_Trial1LeftFoot", "TAP_Trial2RightFoot", "TAP_Trial2LeftFoot",
             "TAP_Fingertapping_Right_avg", "TAP_Fingertapping_Left_avg", "TAP_Foottapping_Right_avg", "TAP_Foottapping_Left_avg"]
-UMN_COLS = ['UMN_Right', 'UMN_Left']
+UMN_COLS = ['UMN_Right', 'UMN_Left', 'LMN_Right', 'LMN_Left']
 
 COXPH_PARAMS = {
     'alpha': 0,
