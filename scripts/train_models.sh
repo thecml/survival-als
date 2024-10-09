@@ -13,12 +13,12 @@ if [ -f "$results_path" ]; then
   rm $results_path
 fi
 
+dataset_names=('calsnic' 'proact')
 seeds=(0 1 2 3 4)
-dataset_names=('proact')
 
-for seed in "${seeds[@]}"; do
-    for dataset_name in "${dataset_names[@]}"; do
-        echo "Running with seed=$seed, dataset_name=$dataset_name"
-        python3 $base_path/../src/train_models.py --seed "$seed" --dataset_name "$dataset_name"
+for dataset_name in "${dataset_names[@]}"; do
+    for seed in "${seeds[@]}"; do
+        echo "Running $dataset_name with seed $seed"
+        python3 $base_path/../src/train_models.py --dataset_name "$dataset_name" --seed "$seed"
     done
 done

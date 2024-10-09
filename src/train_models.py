@@ -48,14 +48,13 @@ torch.set_default_dtype(dtype)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Define models
-#MODELS = ['coxph', 'rsf', 'deepsurv', 'deephit', 'hierarch', 'mtlr', 'mensa', 'conformal']
-MODELS = ['conformal']
+MODELS = ['coxph', 'rsf', 'deepsurv', 'deephit', 'hierarch', 'mtlr', 'mensa', 'conformal']
           
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
-    parser.add_argument('--seed', type=int, default=0)
     parser.add_argument('--dataset_name', type=str, default='proact')
+    parser.add_argument('--seed', type=int, default=0)
     
     args = parser.parse_args()
     seed = args.seed
