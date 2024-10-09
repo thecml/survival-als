@@ -321,11 +321,12 @@ def encode_survival(
 
 def reformat_survival(
         dataset: pd.DataFrame,
-        time_bins: NumericArrayLike
+        time_bins: NumericArrayLike,
+        dtype: torch.dtype
 ) -> (torch.Tensor, torch.Tensor):
     '''Courtesy of https://github.com/shi-ang/BNN-ISD/tree/main'''
-    x = torch.tensor(dataset.drop(["Survival_time", "Event"], axis=1).values, dtype=torch.float)
-    y = encode_survival(dataset["Survival_time"].values, dataset["Event"].values, time_bins)
+    x = torch.tensor(dataset.drop(["time", "event"], axis=1).values, dtype=dtype)
+    y = encode_survival(dataset["time"].values, dataset["event"].values, time_bins)
     return x, y
 
 def coverage(time_bins, upper, lower, true_times, true_indicator) -> float:

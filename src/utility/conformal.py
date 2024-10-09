@@ -297,3 +297,35 @@ def make_mono_quantiles(
 
     return quantiles, quan_preds
 
+def interpolated_survival_curve(times_coordinate, survival_curve, interpolation):
+    if interpolation == "Linear":
+        spline = interp1d(times_coordinate, survival_curve, kind='linear', fill_value='extrapolate')
+    elif interpolation == "Pchip":
+        spline = PchipInterpolator(times_coordinate, survival_curve)
+    elif interpolation == "Hyman":
+        raise NotImplementedError()
+        #x = robjects.FloatVector(times_coordinate)
+        #y = robjects.FloatVector(survival_curve)
+        #spline = r_splinefun(x, y, method='hyman')
+    else:
+        raise ValueError("interpolation must be one of ['Linear', 'Pchip', 'Hyman']")
+    return spline
+
+def quantile_to_survival(quantile_levels, quantile_predictions, time_coordinates, interpolate='Pchip'):
+    survival_level = 1 - quantile_levels
+    slope = - quantile_levels[-1] / quantile_predictions[:, -1]
+    surv_pred = np.empty((quantile_predictions.shape[0], time_coordinates.shape[0]))
+    for i in range(quantile_predictions.shape[0]):
+        # fit an interpolation function to the cdf
+        spline = interpolated_survival_curve(quantile_predictions[i, :], survival_level, interpolate)
+
+        # if the quantile level is beyond last cdf, we extrapolate the
+        beyond_prob_idx = np.where(time_coordinates > quantile_predictions[i, -1])[0]
+        surv_pred[i] = spline(time_coordinates)
+        surv_pred[i, beyond_prob_idx] = np.clip(time_coordinates[beyond_prob_idx] * slope[i] + 1,
+                                                a_min=0, a_max=1)
+
+    # sanity checks
+    assert np.all(surv_pred >= 0), "Survival predictions contain negative."
+    assert check_monotonicity(surv_pred), "Survival predictions are not monotonic."
+    return surv_pred

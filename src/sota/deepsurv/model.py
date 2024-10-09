@@ -1,7 +1,7 @@
 import argparse
 import torch
 import torch.nn as nn
-from sota.deepsurv.utility import calculate_baseline_hazard
+from utility.survival import calculate_baseline_hazard
 
 class DeepSurv(nn.Module):
     def __init__(self, in_features: int, config: argparse.Namespace):

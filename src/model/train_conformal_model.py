@@ -28,7 +28,7 @@ torch.set_default_dtype(dtype)
 # Setup device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-dataset_name = "calsnic"
+dataset_name = "proact"
 
 if __name__ == "__main__":
     # Load data
@@ -78,10 +78,11 @@ if __name__ == "__main__":
     config = load_config(cfg.MENSA_CONFIGS_DIR, f"{dataset_name}.yaml")
     model = ConformalMensa(n_features, time_bins=time_bins,
                            n_events=n_events, device=device, config=config)
-    datasets = [train_dict, valid_dict, test_dict]
-    quan_levels, quan_preds = model.fit_calibrate(datasets, feature_names,
-                                                  decensor_method="sampling",
-                                                  condition=None)
+    datasets = [train_dict, valid_dict]
+    model.fit_calibrate(datasets, feature_names, decensor_method="margin", condition=None)
+    
+    # Predict quantiles
+    quan_levels, quan_preds = model.predict(test_dict)
     
     # Make evaluation for each event
     for i in range(n_events):

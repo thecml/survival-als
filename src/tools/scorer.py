@@ -36,13 +36,13 @@ class SurvivalNC(sklearn.base.BaseEstimator):
         self.mono_method = "bootstrap"
         self.seed = 0
 
-    def fit(self, train_dict: dict, valid_dict: dict):
+    def fit(self, train_dict: dict, valid_dict: dict, verbose: bool):
         """Fits the underlying model of the nonconformity scorer."""
         lr = self.config['lr']
         n_epochs = self.config['n_epochs']
         batch_size = self.config['batch_size']
         self.model.fit(train_dict, valid_dict, learning_rate=lr, n_epochs=n_epochs,
-                       patience=10, batch_size=batch_size, verbose=True)
+                       patience=10, batch_size=batch_size, verbose=verbose)
 
     def score(
             self,

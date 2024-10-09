@@ -30,28 +30,55 @@ TAP_COLS = ["TAP_Trial1RightFinger", "TAP_Trial1LeftFinger", "TAP_Trial2RightFin
             "TAP_Fingertapping_Right_avg", "TAP_Fingertapping_Left_avg", "TAP_Foottapping_Right_avg", "TAP_Foottapping_Left_avg"]
 UMN_COLS = ['UMN_Right', 'UMN_Left']
 
-COX_PARAMS = {
-    'hidden_size': 32,
-    'mu_scale': None,
-    'rho_scale': -5,
-    'sigma1': 1,
-    'sigma2': 0.002,
-    'pi': 0.5,
-    'verbose': False,
-    'lr': 0.00008,
-    'c1': 0.01,
-    'num_epochs': 1000,
-    'dropout': 0.5,
-    'n_samples_train': 10,
-    'n_samples_test': 100,
-    'batch_size': 32,
-    'early_stop': True,
-    'patience': 50}
+COXPH_PARAMS = {
+    'alpha': 0,
+    'ties': 'breslow',
+    'n_iter': 100,
+    'tol': 1e-9
+}
+
+RSF_PARAMS = {
+    'n_estimators': 100,
+    'max_depth': 3,
+    'min_samples_split': 60,
+    'min_samples_leaf': 30,
+    'max_features': None,
+    "random_state": 0
+}
 
 DEEPSURV_PARAMS = {
     'hidden_size': 32,
     'verbose': False,
     'lr': 0.005,
+    'c1': 0.01,
+    'num_epochs': 1000,
+    'dropout': 0.25,
+    'batch_size': 32,
+    'early_stop': True,
+    'patience': 10
+}
+
+DEEPHIT_PARAMS = {
+    'num_nodes_shared': [32],
+    'num_nodes_indiv': [32],
+    'batch_norm': True,
+    'verbose': False,
+    'dropout': 0.25,
+    'alpha': 0.2,
+    'sigma': 0.1,
+    'batch_size': 128,
+    'lr': 0.001,
+    'weight_decay': 0.01,
+    'eta_multiplier': 0.8,
+    'epochs': 1000,
+    'early_stop': True,
+    'patience': 10,
+}
+
+MTLR_PARAMS = {
+    'hidden_size': 32,
+    'verbose': False,
+    'lr': 0.001,
     'c1': 0.01,
     'num_epochs': 1000,
     'dropout': 0.25,

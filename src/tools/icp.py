@@ -48,12 +48,12 @@ class IcpSurvival(BaseEstimator):
             self.conditional = False
 
         self.categories = None
-        self.cal_scores = None
+        self.cal_scores = dict()
 
-    def fit(self, data_train, data_val, feature_names):
+    def fit(self, data_train, data_val, feature_names, verbose):
         self.train_data = data_train
         self.feature_names = feature_names
-        self.nc_function.fit(self.train_data, data_val)
+        self.nc_function.fit(self.train_data, data_val, verbose)
 
     def calibrate(self, data_train, data_val, time_bins, risk=0, increment=False):
         self._update_calibration_set(data_val, increment)
@@ -67,7 +67,7 @@ class IcpSurvival(BaseEstimator):
             cal_scores = self.nc_function.score(feature_df=features, t=t, e=e,
                                                 risk=risk, quantile_levels=self.quantile_levels,
                                                 time_bins=time_bins, method=self.decensor_method)
-            self.cal_scores = {0: np.sort(cal_scores, 0)[::-1]}
+            self.cal_scores[risk] = {0: np.sort(cal_scores, 0)[::-1]}
 
     def predict(self, x, risk, time_bins):
         """Predict the output values for a set of input patterns.
@@ -94,7 +94,7 @@ class IcpSurvival(BaseEstimator):
                 p = self.nc_function.predict(x[idx, :],
                                              risk=risk,
                                              time_bins=time_bins,
-                                             conformal_scores=self.cal_scores[condition],
+                                             conformal_scores=self.cal_scores[risk][condition],
                                              feature_names=self.feature_names,
                                              quantile_levels=self.quantile_levels)
                 quan_pred[idx, :] = p

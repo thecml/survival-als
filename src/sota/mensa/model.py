@@ -83,7 +83,7 @@ class MENSA:
     layers: layers and size of the network, e.g., [32, 32].
     device: device to use, e.g., cpu or cuda
     """
-    def __init__(self, n_features, n_events, n_dists=5, layers=[32, 32], device='cpu'):
+    def __init__(self, n_features, n_events, n_dists=3, layers=[32, 32], device='cpu'):
         self.n_features = n_features
         self.n_events = n_events
         self.device = device

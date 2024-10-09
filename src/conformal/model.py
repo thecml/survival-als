@@ -39,22 +39,20 @@ class ConformalMensa:
         self.nc_model = SurvivalNC(self.mensa_model, error_func, config=config, device=device)
         
     def fit_calibrate(self, datasets, feature_names=[], condition=None,
-                      decensor_method="margin", n_quantiles=9, use_train=False):
+                      decensor_method="margin", n_quantiles=9, use_train=False, verbose=False):
         trainset = datasets[0]
         valset = datasets[1]
-        x_test = datasets[2]['X'].cpu().numpy()
 
         # Fit the ICP using the proper training set, and using valid set for early stopping
-        icp = IcpSurvival(self.nc_model, condition=condition,
+        self.icp = IcpSurvival(self.nc_model, condition=condition,
                           decensor_method=decensor_method,
                           n_quantiles=n_quantiles)
-        icp.fit(trainset, valset, feature_names)
+        self.icp.fit(trainset, valset, feature_names, verbose)
         
         # Calibrate the ICP using the calibration set
         if use_train:
             valset = pd.concat([trainset, valset], ignore_index=True)
         
-        event_quantiles, event_quan_preds = [], []
         for i in range(self.n_events): # for each event
             event_trainset = pd.DataFrame(trainset['X'], columns=feature_names)
             event_trainset['time'] = trainset['T'][:,i]
@@ -62,11 +60,14 @@ class ConformalMensa:
             event_valset = pd.DataFrame(valset['X'], columns=feature_names)
             event_valset['time'] = valset['T'][:,i]
             event_valset['event'] = valset['E'][:,i]
-            icp.calibrate(data_train=event_trainset, data_val=event_valset,
-                          time_bins=self.time_bins, risk=i)
-            quantiles, quan_preds = icp.predict(x_test, risk=i,
-                                                time_bins=self.time_bins)
+            self.icp.calibrate(data_train=event_trainset, data_val=event_valset,
+                               time_bins=self.time_bins, risk=i)
+
+    def predict(self, X_test: dict):
+        x_test = X_test['X'].cpu().numpy()
+        event_quantiles, event_quan_preds = [], []
+        for i in range(self.n_events):
+            quantiles, quan_preds = self.icp.predict(x_test, risk=i, time_bins=self.time_bins)
             event_quantiles.append(quantiles)
             event_quan_preds.append(quan_preds)
-
         return event_quantiles, event_quan_preds
