@@ -227,6 +227,19 @@ def multilabel_train_test_split(X, y, test_size, random_state=None):
     X_train, y_train, X_test, y_test = iterative_train_test_split(X, y, test_size=test_size)
     return X_train, y_train, X_test, y_test
 
+def make_multi_event_stratified_column(times):
+    N, d = times.shape[0], times.shape[1]
+    num_elements_per_column = N // d
+    remaining_elements = N % d
+    result = []
+    for i in range(d):
+        if i < remaining_elements:
+            result.extend(times[:num_elements_per_column + 1, i])
+        else:
+            result.extend(times[:num_elements_per_column, i])
+    result_array = np.array(result)
+    return result_array
+
 def make_stratified_split(
         df: pd.DataFrame,
         stratify_colname: str = 'event',
