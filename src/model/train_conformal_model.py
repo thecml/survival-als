@@ -11,12 +11,6 @@ from SurvivalEVAL.Evaluations.util import KaplanMeier
 from SurvivalEVAL import mean_error
 from SurvivalEVAL.Evaluator import QuantileRegEvaluator
 
-class dotdict(dict):
-    """dot.notation access to dictionary attributes"""
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
 np.random.seed(0)
 torch.manual_seed(0)
 random.seed(0)
@@ -32,11 +26,7 @@ dataset_name = "proact"
 
 if __name__ == "__main__":
     # Load data
-    dl = get_data_loader(dataset_name)
-    if dataset_name == "synthetic":
-        dl = dl.load_data(cfg.SYNTHETIC_SETTINGS, device=device, dtype=dtype)
-    else:
-        dl = dl.load_data()
+    dl = get_data_loader(dataset_name).load_data()
     train_dict, valid_dict, test_dict = dl.split_data(train_size=0.7, valid_size=0.1,
                                                       test_size=0.2, random_state=0)
     n_events = dl.n_events
@@ -101,7 +91,8 @@ if __name__ == "__main__":
         quantile_evaler = QuantileRegEvaluator(quan_preds[i], quan_levels[i],
                                                y_test_time, y_test_event,
                                                t_train_val, e_train_val,
-                                               predict_time_method="Median", interpolation='Pchip')
+                                               predict_time_method="Median",
+                                               interpolation='Pchip')
         mae_margin = quantile_evaler.mae(method="Margin")
         ci = quantile_evaler.concordance()[0]
         ibs = quantile_evaler.integrated_brier_score(num_points=10)

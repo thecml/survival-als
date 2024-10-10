@@ -2,6 +2,8 @@ from SurvivalEVAL import mean_error
 import pandas as pd
 import numpy as np
 import config as cfg
+from sota.deepsurv.model import DeepSurv
+from sota.deepsurv.utility import make_deepsurv_prediction, train_deepsurv_model
 from utility.survival import (make_stratified_split, convert_to_structured,
                               make_time_bins, make_event_times, preprocess_data)
 from sklearn.model_selection import train_test_split
@@ -14,7 +16,6 @@ import torch
 import random
 import warnings
 from tools.data_loader import get_data_loader
-from sota_models import DeepSurv, train_deepsurv_model, make_deepsurv_prediction
 from scipy.interpolate import interp1d
 from SurvivalEVAL.Evaluator import LifelinesEvaluator
 from utility.evaluation import global_C_index, local_C_index

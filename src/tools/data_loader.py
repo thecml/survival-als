@@ -60,15 +60,13 @@ class PROACTDataLoader(BaseDataLoader):
     Data loader for ALS dataset (ME). Use the PRO-ACT dataset.
     """
     def load_data(self, n_samples:int = None):
-        #event_cols = ['Bulbar', 'FineMotor', 'GrossMotor', 'Breathing']
         df = pd.read_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed.csv', index_col=0)
         if n_samples:
             df = df.sample(n=n_samples, random_state=0)
         label_cols = [col for col in df.columns if any(substring in col for substring in ['Event', 'TTE'])]
-        df = df.loc[(df['TTE_Bulbar'] > 0) & (df['TTE_FineMotor'] > 0)
-                    & (df['TTE_GrossMotor'] > 0) & (df['TTE_Breathing'] > 0)]
-        df = df.loc[(df['TTE_Bulbar'] <= 1000) & (df['TTE_FineMotor'] <= 1000)
-                    & (df['TTE_GrossMotor'] <= 1000) & (df['TTE_Breathing'] <= 1000)]
+        event_names = ["Communication", "Movement", "Swallowing", "Breathing"]
+        for event_name in event_names:
+            df = df.loc[(df[f'TTE_{event_name}'] > 0) & (df[f'TTE_{event_name}'] <= 500)] # 0 - 500
         df = df.dropna(subset='Handgrip_Strength') # drop rows with no handgrip test
         df['El_escorial'] = df['El_escorial'].replace('Possible', 'Probable') # Replace "Possible" with "Probable"
         df = df.drop('Race_Caucasian', axis=1) # Drop race information
@@ -77,13 +75,12 @@ class PROACTDataLoader(BaseDataLoader):
         df = df.drop(columns=['ABDUCTOR_POLLICIS_BREVIS_Strength', 
                               'SHOULDER_Strength', 
                               'FIRST_DORSAL_INTEROSSEOUS_OF_THE_HAND_Strength'], axis=1) # drop rare strength tests
-        events = ['Bulbar', 'FineMotor', 'GrossMotor', 'Breathing']
         self.X = df.drop(label_cols, axis=1)
         self.columns = list(self.X.columns)
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
-        times = [df[f'TTE_{event_col}'].values for event_col in events]
-        events = [df[f'Event_{event_col}'].values for event_col in events]
+        times = [df[f'TTE_{event_col}'].values for event_col in event_names]
+        events = [df[f'Event_{event_col}'].values for event_col in event_names]
         self.y_t = np.stack((times[0], times[1], times[2], times[3]), axis=1)
         self.y_e = np.stack((events[0], events[1], events[2], events[3]), axis=1)
         self.n_events = 4

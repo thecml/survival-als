@@ -91,17 +91,19 @@ if __name__ == '__main__':
     df['DiseaseProgressionRate'] = (48 - df['ALSFRS_TotalScore']) / (df['SymptomDays']/30)
     
     # Calculate ALSFRS subscores
-    df['ALSFRS_Bulbar_subscore'] = df['ALSFRS_1_Speech'] + df['ALSFRS_2_Salivation'] + df['ALSFRS_3_Swallowing']
-    df['ALSFRS_FineMotor_subscore'] = df['ALSFRS_4_Handwriting'] + df['ALSFRS_5_Cuttingfood&handlingutensils'] + df['ALSFRS_6_Dressing&hygiene']
-    df['ALSFRS_GrossMotor_subscore'] = df['ALSFRS_7_Turninginbed'] + df['ALSFRS_8_Walking'] + df['ALSFRS_9_Climbingstairs']
-    df['ALSFRS_Breathing_subscore'] = df['ALSFRS_10_Dyspnea'] + df['ALSFRS_11_Orthopnea'] + df['ALSFRS_12_RespiratoryInsufficiency']
+    #df['ALSFRS_Bulbar_subscore'] = df['ALSFRS_1_Speech'] + df['ALSFRS_2_Salivation'] + df['ALSFRS_3_Swallowing']
+    #df['ALSFRS_FineMotor_subscore'] = df['ALSFRS_4_Handwriting'] + df['ALSFRS_5_Cuttingfood&handlingutensils'] + df['ALSFRS_6_Dressing&hygiene']
+    #df['ALSFRS_GrossMotor_subscore'] = df['ALSFRS_7_Turninginbed'] + df['ALSFRS_8_Walking'] + df['ALSFRS_9_Climbingstairs']
+    #df['ALSFRS_Breathing_subscore'] = df['ALSFRS_10_Dyspnea'] + df['ALSFRS_11_Orthopnea'] + df['ALSFRS_12_RespiratoryInsufficiency']
 
     # Annotate events
-    event_cols = ['ALSFRS_Bulbar_subscore', 'ALSFRS_FineMotor_subscore',
-                  'ALSFRS_GrossMotor_subscore', 'ALSFRS_Breathing_subscore']
-    threshold = 6
-    for event_col in event_cols:
-        df[f'Event_{event_col}'] = (df[event_col] <= threshold).astype(bool)
+    threshold = 1
+    df[f'Event_Communication'] = (df['ALSFRS_1_Speech'] <= threshold) | (df['ALSFRS_4_Handwriting'] <= threshold)
+    df[f'Event_Movement'] = (df['ALSFRS_6_Dressing&hygiene'] <= threshold) | (df['ALSFRS_8_Walking'] <= threshold)
+    df[f'Event_Swallowing'] = (df['ALSFRS_3_Swallowing'] <= threshold)
+    df[f'Event_Breathing'] = (df['ALSFRS_10_Dyspnea'] <= threshold) | (df['ALSFRS_12_RespiratoryInsufficiency'] <= threshold)
+    event_names = ["Communication", "Movement", "Swallowing", "Breathing"]
+    for event_col in event_names:
         df[f'Event_{event_col}'] = df.groupby('PSCID')[f'Event_{event_col}'].shift(-1)
         df[f'TTE_{event_col}']  = df.groupby('PSCID')['Visit_Diff'].shift(-1)
         
@@ -124,7 +126,7 @@ if __name__ == '__main__':
     #event_df = df.loc[~df['PSCID'].isin(left_censored)]
     
     # Drop NA and reset index
-    event_cols = ['Event_Bulbar', 'Event_FineMotor', 'Event_GrossMotor', 'Event_Breathing']
+    event_cols = ["Event_Communication", "Event_Movement", "Event_Swallowing", "Event_Breathing"]
     df = df.dropna(subset=event_cols).reset_index(drop=True)
     
     # Rename cols
