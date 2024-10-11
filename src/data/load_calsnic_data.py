@@ -13,12 +13,33 @@ def calculate_time_to_death(row):
     time = row['Date of death'] - row['Visit_Date']
     return time.total_seconds() / 86400
 
+def convert_weight(row):
+    if row['weight_scale'] == 'kg':
+        return row['weight']  # Keep the value as is
+    elif row['weight_scale'] == 'lbs':
+        return row['weight'] * 0.453592  # Convert pounds to kg
+    else:
+        return None  # Handle any unexpected values
+
+def convert_height(row):
+    if row['height_scale'] == 'cm':
+        return row['height']  # Keep the value as is
+    elif row['height_scale'] == 'inches':
+        return row['height'] * 2.54  # Convert inches to cm
+    else:
+        return None  # Handle any unexpected values
+
 if __name__ == '__main__':
     # Load data
     patient_filename = "Final_Data_sheet_July2023_HenkJan.xlsx"
     survival_filename = "Survival_Jan2024.xlsx"
+    fvc1_filename = "FVC_CALSNIC1.xlsx"
+    fvc2_filename = "FVC_CALSNIC2.xlsx"
+    
     patient_df = pd.read_excel(Path.joinpath(cfg.CALSNIC_DATA_DIR, patient_filename), engine='openpyxl', date_format="%d/%m/%Y")
     survival_df = pd.read_excel(Path.joinpath(cfg.CALSNIC_DATA_DIR, survival_filename), engine='openpyxl', date_format="%d/%m/%Y")
+    fvc1_df = pd.read_excel(Path.joinpath(cfg.CALSNIC_DATA_DIR, fvc1_filename), engine='openpyxl', date_format="%d/%m/%Y")
+    fvc2_df = pd.read_excel(Path.joinpath(cfg.CALSNIC_DATA_DIR, fvc2_filename), engine='openpyxl', date_format="%d/%m/%Y")
     
     patient_df = patient_df.loc[patient_df['Patient or Control'] == 'Patient'] # only use patients
     patient_df = patient_df[patient_df['Visit_Date'].notna()]
@@ -29,6 +50,9 @@ if __name__ == '__main__':
     df = patient_df.merge(survival_df, on=['PSCID']) # Merge the two datasets
     df = df[cfg.PATIENT_COLS + cfg.SURVIVAL_COLS + cfg.ALSFRS_COLS
             + cfg.TAP_COLS + cfg.UMN_COLS] # Select relevant features
+    
+    fvc1_df['PSCID'] = fvc1_df['Record ID'].str.strip()
+    fvc2_df['PSCID'] = fvc2_df['PSCID'].str.strip()
     
     # Convert empty strings to NaN
     df['UMN_Right'] = df['UMN_Right'].replace(to_replace=' ', value=np.nan, regex=True)
@@ -80,6 +104,36 @@ if __name__ == '__main__':
     df['Subject_used_Riluzole'] = df['Subject_used_Riluzole'].replace('no', 'No')
     df['Subject_used_Riluzole'] = df['Subject_used_Riluzole'].replace('yes', 'Yes')
     df['Subject_used_Riluzole'] = df['Subject_used_Riluzole'].fillna('Unknown')
+    
+    # Record FVC mean
+    fvc1_df_cols = ['FVC Trial1L', 'FVC Trial2L', 'FVC Trial3L', 'FVC Trial4L', 'FVC Trial5L']
+    fvc2_df_cols = ['trial_one', 'trial_two', 'trial_three', 'trial_four', 'trial_five']
+    fvc1_df[fvc1_df_cols] = fvc1_df[fvc1_df_cols].apply(pd.to_numeric, errors='coerce')
+    fvc2_df[fvc2_df_cols] = fvc2_df[fvc2_df_cols].apply(pd.to_numeric, errors='coerce')
+    fvc1_df['FVC_Average'] = fvc1_df[fvc1_df_cols].mean(axis=1, skipna=True)
+    fvc2_df['FVC_Average'] = fvc2_df[fvc2_df_cols].mean(axis=1, skipna=True)
+    fvc1_df = fvc1_df.rename({'Visit': 'Visit Label'}, axis=1)
+    visit_mapping = {'V1': 'Visit 1', 'V2': 'Visit 2', 'V3': 'Visit 3', 'V4': 'Visit 4', 'V5': 'Visit 5',
+                     'V6': 'Visit 6', 'V7': 'Visit 7', 'V8': 'Visit 8', 'V9': 'Visit 9', 'V10': 'Visit 10'}
+    fvc2_df['Visit Label'] = fvc2_df['Visit Label'].replace(visit_mapping)
+    df = pd.merge(df, fvc1_df[['PSCID', 'Visit Label', 'FVC_Average']], on=['PSCID', 'Visit Label'], how='left')
+    df = pd.merge(df, fvc2_df[['PSCID', 'Visit Label', 'FVC_Average']], on=['PSCID', 'Visit Label'], how='left')
+    df['FVC_Average'] = df['FVC_Average_x'].combine_first(df['FVC_Average_y'])
+    df = df.drop(columns=['FVC_Average_x', 'FVC_Average_y'])
+    
+    # Record race, height and weight
+    df = pd.merge(df, fvc1_df[['PSCID', 'Visit Label', 'FVC Ethnicity',
+                               'FVC Height (cm)', 'FVC Weight (kg)']], on=['PSCID', 'Visit Label'], how='left')
+    fvc2_df['Weight'] = fvc2_df.apply(convert_weight, axis=1)
+    fvc2_df['Height'] = fvc2_df.apply(convert_height, axis=1)
+    df = pd.merge(df, fvc2_df[['PSCID', 'Visit Label', 'ethnicity',
+                               'Weight', 'Height']], on=['PSCID', 'Visit Label'], how='left')
+    df['Ethnicity'] = df['FVC Ethnicity'].combine_first(df['ethnicity'])
+    df = df.drop(columns=['FVC Ethnicity', 'ethnicity'])
+    df['Ethnicity'] = df['Ethnicity'].fillna('Unknown')
+    df['Weight'] = df['FVC Weight (kg)'].combine_first(df['Weight'])
+    df['Height'] = df['FVC Height (cm)'].combine_first(df['Height'])
+    df = df.drop(columns=['FVC_Average', 'FVC Height (cm)', 'FVC Weight (kg)'])
     
     # Calculate days between visitations
     df['Visit_Diff'] = df.groupby(['PSCID'])['Visit_Date'].diff().dt.days.fillna(0).astype(int)

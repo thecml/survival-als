@@ -146,7 +146,7 @@ if __name__ == "__main__":
     fvc_df['FVC_Max'] = fvc_df[cols].max(axis=1)
     fvc_df['FVC_Mean'] = fvc_df[cols].mean(axis=1)
     fvc_df = fvc_df.drop_duplicates(subset='subject_id')
-    df = pd.merge(df, fvc_df[['subject_id', 'FVC_Min', 'FVC_Max', 'FVC_Mean']], on="subject_id", how="left")
+    df = pd.merge(df, fvc_df[['subject_id', 'FVC_Mean']], on="subject_id", how="left")
     
     # Record handgrip strength
     handgrip_str_df = handgrip_str_df.drop_duplicates(subset='subject_id').copy(deep=True)
