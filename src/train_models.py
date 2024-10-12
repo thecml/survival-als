@@ -278,11 +278,6 @@ if __name__ == "__main__":
         else:
             raise NotImplementedError()
     
-        # Compute global and local CI
-        all_preds_arr = [df.to_numpy() for df in all_preds]
-        global_ci = global_C_index(all_preds_arr, test_dict['T'].cpu().numpy(), test_dict['E'].cpu().numpy())
-        local_ci = local_C_index(all_preds_arr, test_dict['T'].cpu().numpy(), test_dict['E'].cpu().numpy())
-
         # Evaluate predictions each event
         model_results = pd.DataFrame()
         for event_id, surv_pred in enumerate(all_preds):
@@ -296,6 +291,8 @@ if __name__ == "__main__":
             mae_margin = lifelines_eval.mae(method="Margin")
             ci = lifelines_eval.concordance()[0]
             ibs = lifelines_eval.integrated_brier_score()
+            one_calib = lifelines_eval.one_calibration()[0]
+            km_calib =lifelines_eval.km_calibration()
             d_calib = lifelines_eval.d_calibration()[0]
             
             # Calculate KM estimate
@@ -307,11 +304,11 @@ if __name__ == "__main__":
                                 train_event_times=y_train_time, train_event_indicators=y_train_event,
                                 method='Margin')
             
-            metrics = [ci, ibs, mae_margin, km_mae, global_ci, local_ci, d_calib]
+            metrics = [ci, ibs, mae_margin, km_mae, one_calib, km_calib, d_calib]
             print(f'{model_name} E{event_id+1}: ' + str(metrics))
             res_sr = pd.Series([dataset_name, seed, event_id] + metrics,
-                                index=["DatasetName", "Seed", "EventId", "CI", "IBS", "MAEM",
-                                       "MAEKM", "GlobalCI", "LocalCI", "DCalib"])
+                                index=["DatasetName", "Seed", "EventId", "CI", "IBS",
+                                       "MAEM", "MAEKM", "OneCalib", "KMCalib", "DCalib"])
             model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
     
             # Save results
