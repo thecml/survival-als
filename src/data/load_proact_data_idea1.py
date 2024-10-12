@@ -76,26 +76,15 @@ if __name__ == "__main__":
     df = pd.merge(df, diagnosis_delta, on="subject_id", how='left')
     df = df.dropna(subset='Diagnosis_Delta')
     
-    # Calculate ALSFRS subscores
-    #alsfrs_df['Q5_Cuttingfood'] = alsfrs_df['Q5a_Cutting_without_Gastrostomy'].fillna(alsfrs_df['Q5b_Cutting_with_Gastrostomy'])
-    #alsfrs_df['ALSFRS_Bulbar_subscore'] = alsfrs_df['Q1_Speech'] + alsfrs_df['Q2_Salivation'] + alsfrs_df['Q3_Swallowing']
-    #alsfrs_df['ALSFRS_FineMotor_subscore'] = alsfrs_df['Q4_Handwriting'] + alsfrs_df['Q5_Cuttingfood'] + alsfrs_df['Q6_Dressing_and_Hygiene']
-    #alsfrs_df['ALSFRS_GrossMotor_subscore'] = alsfrs_df['Q7_Turning_in_Bed'] + alsfrs_df['Q8_Walking'] + alsfrs_df['Q9_Climbing_Stairs']
-    #alsfrs_df['ALSFRS_Breathing_subscore'] = alsfrs_df['R_1_Dyspnea'] + alsfrs_df['R_2_Orthopnea'] + alsfrs_df['R_3_Respiratory_Insufficiency']
-    #event_cols = ['ALSFRS_Bulbar_subscore', 'ALSFRS_FineMotor_subscore', 'ALSFRS_GrossMotor_subscore', 'ALSFRS_Breathing_subscore']
-    
     # Annotate events
-    threshold = 1
-    alsfrs_df[f'Event_Communication'] = (alsfrs_df['Q1_Speech'] <= threshold) | (alsfrs_df['Q4_Handwriting'] <= threshold)
-    alsfrs_df[f'Event_Movement'] = (alsfrs_df['Q6_Dressing_and_Hygiene'] <= threshold) | (alsfrs_df['Q8_Walking'] <= threshold)
-    alsfrs_df[f'Event_Swallowing'] = (alsfrs_df['Q3_Swallowing'] <= threshold)
-    alsfrs_df[f'Event_Breathing'] = (alsfrs_df['R_1_Dyspnea'] <= threshold) | (alsfrs_df['R_3_Respiratory_Insufficiency'] <= threshold)
-    event_names = ["Communication", "Movement", "Swallowing", "Breathing"]
-    for event_name in event_names:
+    threshold = 2
+    event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
+    event_cols = ['Q1_Speech', 'Q3_Swallowing', 'Q4_Handwriting', 'Q8_Walking']
+    for event_name, event_col in zip(event_names, event_cols):
+        alsfrs_df[f'Event_{event_name}'] = (alsfrs_df[event_col] <= threshold).astype(int)
         event_df = alsfrs_df.groupby('subject_id').apply(annotate_event, f'Event_{event_name}').reset_index()
         event_df = event_df.rename({'Delta_Observed': f'TTE_{event_name}', 'Event': f'Event_{event_name}'}, axis=1)
         df = pd.merge(df, event_df, on="subject_id", how='left')
-        df[[f'TTE_{event_name}', f'Event_{event_name}']] = df.apply(lambda x: annotate_left_censoring(x, event_name), axis=1)
         
     # Record total ALSFRS-R score at baseline
     df = pd.merge(df, alsfrs_df[['subject_id', 'ALSFRS_R_Total']] \
@@ -175,4 +164,4 @@ if __name__ == "__main__":
     df = df.reset_index(drop=True)
     
     # Save df
-    df.to_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed.csv')
+    df.to_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed_idea1.csv')

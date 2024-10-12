@@ -49,7 +49,7 @@ RSF_PARAMS = {
 DEEPSURV_PARAMS = {
     'hidden_size': 32,
     'verbose': False,
-    'lr': 0.005,
+    'lr': 0.001,
     'c1': 0.01,
     'num_epochs': 1000,
     'dropout': 0.25,
