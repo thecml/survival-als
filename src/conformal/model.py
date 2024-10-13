@@ -63,8 +63,8 @@ class ConformalMensa:
             self.icp.calibrate(data_train=event_trainset, data_val=event_valset,
                                time_bins=self.time_bins, risk=i)
 
-    def predict(self, X_test: dict):
-        x_test = X_test['X'].cpu().numpy()
+    def predict(self, X_test: torch.Tensor):
+        x_test = X_test.cpu().numpy()
         event_quantiles, event_quan_preds = [], []
         for i in range(self.n_events):
             quantiles, quan_preds = self.icp.predict(x_test, risk=i, time_bins=self.time_bins)

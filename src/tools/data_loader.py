@@ -60,20 +60,20 @@ class PROACTDataLoader(BaseDataLoader):
     Data loader for ALS dataset (ME). Uses the PRO-ACT dataset.
     """
     def load_data(self, n_samples:int = None):
-        df = pd.read_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed_idea1.csv', index_col=0)
+        df = pd.read_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed_idea3.csv', index_col=0)
         if n_samples:
             df = df.sample(n=n_samples, random_state=0)
         label_cols = [col for col in df.columns if any(substring in col for substring in ['Event', 'TTE'])]
-        event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
-        for event_name in event_names:  
+        event_names = ["Communication", "Movement", "Swallowing", "Breathing"]
+        for event_name in event_names:
             df = df.loc[(df[f'TTE_{event_name}'] > 0) & (df[f'TTE_{event_name}'] <= 365)] # 0 - 500
         df = df.dropna(subset='Handgrip_Strength') # drop rows with no handgrip test
         df['El_escorial'] = df['El_escorial'].replace('Possible', 'Probable') # Replace "Possible" with "Probable"
         df = df.drop('Race_Caucasian', axis=1) # Drop race information
         df = df.drop('El_escorial', axis=1) # Drop el_escorial
         df = df.drop(['Height', 'Weight'], axis=1) # drop height/weight
-        df = df.drop(columns=['ABDUCTOR_POLLICIS_BREVIS_Strength', 
-                              'SHOULDER_Strength', 
+        df = df.drop(columns=['ABDUCTOR_POLLICIS_BREVIS_Strength',
+                              'SHOULDER_Strength',
                               'FIRST_DORSAL_INTEROSSEOUS_OF_THE_HAND_Strength'], axis=1) # drop rare strength tests
         self.X = df.drop(label_cols, axis=1)
         self.columns = list(self.X.columns)

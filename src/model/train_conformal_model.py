@@ -72,3 +72,7 @@ if __name__ == "__main__":
     path = Path.joinpath(cfg.MODELS_DIR, f"conformal_{dataset_name}.pkl")
     joblib.dump(model, path)
     
+    # Load model
+    #path = Path.joinpath(cfg.MODELS_DIR, f"conformal_{dataset_name}.pkl")
+    #model = joblib.load(path)
+    #quan_levels, quan_preds = model.predict(test_dict['X'])

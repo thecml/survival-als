@@ -21,7 +21,6 @@ from scipy.interpolate import interp1d
 from tools.data_loader import get_data_loader
 from SurvivalEVAL.Evaluator import LifelinesEvaluator
 from SurvivalEVAL.Evaluations.util import KaplanMeier
-from utility.evaluation import global_C_index, local_C_index
 from utility.config import load_config
 from sota.hierarchical import util
 from sksurv.linear_model import CoxPHSurvivalAnalysis
@@ -270,7 +269,7 @@ if __name__ == "__main__":
                 all_preds.append(preds)   
         elif model_name == "conformal":
             all_preds = []
-            quan_levels, quan_preds = model.predict(test_dict)
+            quan_levels, quan_preds = model.predict(test_dict['X'])
             for i in range(n_events):
                 preds = quantile_to_survival(quan_levels[i], quan_preds[i], time_bins)
                 preds = pd.DataFrame(preds, columns=time_bins.cpu().numpy())
