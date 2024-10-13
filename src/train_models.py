@@ -47,7 +47,8 @@ torch.set_default_dtype(dtype)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Define models
-MODELS = ['coxph', 'rsf', 'deepsurv', 'deephit', 'hierarch', 'mtlr', 'mensa', 'conformal']
+#MODELS = ['coxph', 'rsf', 'deepsurv', 'deephit', 'hierarch', 'mtlr', 'mensa', 'conformal']
+MODELS = ['conformal']
           
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -62,8 +63,8 @@ if __name__ == "__main__":
     # Load and split data
     dl = get_data_loader(dataset_name)
     dl = dl.load_data()
-    train_dict, valid_dict, test_dict = dl.split_data(train_size=0.7, valid_size=0.1, test_size=0.2,
-                                                      random_state=seed)
+    train_dict, valid_dict, test_dict = dl.split_data(train_size=0.7, valid_size=0.1,
+                                                      test_size=0.2, random_state=seed)
     n_events = dl.n_events
     
     # Preprocess data
@@ -289,9 +290,7 @@ if __name__ == "__main__":
         
             mae_margin = lifelines_eval.mae(method="Margin")
             ci = lifelines_eval.concordance()[0]
-            ibs = lifelines_eval.integrated_brier_score()
-            one_calib = lifelines_eval.one_calibration()[0]
-            km_calib =lifelines_eval.km_calibration()
+            ibs = lifelines_eval.integrated_brier_score(num_points=10)
             d_calib = lifelines_eval.d_calibration()[0]
             
             # Calculate KM estimate
@@ -303,11 +302,11 @@ if __name__ == "__main__":
                                 train_event_times=y_train_time, train_event_indicators=y_train_event,
                                 method='Margin')
             
-            metrics = [ci, ibs, mae_margin, km_mae, one_calib, km_calib, d_calib]
+            metrics = [ci, ibs, mae_margin, km_mae, d_calib]
             print(f'{model_name} E{event_id+1}: ' + str(metrics))
             res_sr = pd.Series([dataset_name, seed, event_id] + metrics,
-                                index=["DatasetName", "Seed", "EventId", "CI", "IBS",
-                                       "MAEM", "MAEKM", "OneCalib", "KMCalib", "DCalib"])
+                                index=["DatasetName", "Seed", "EventId", "CI",
+                                       "IBS", "MAEM", "MAEKM", "DCalib"])
             model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
     
             # Save results

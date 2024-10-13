@@ -77,7 +77,7 @@ if __name__ == "__main__":
     df = df.dropna(subset='Diagnosis_Delta')
     
     # Annotate events
-    threshold = 2
+    threshold = 1
     event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
     event_cols = ['Q1_Speech', 'Q3_Swallowing', 'Q4_Handwriting', 'Q8_Walking']
     for event_name, event_col in zip(event_names, event_cols):
