@@ -45,8 +45,8 @@ class ConformalMensa:
 
         # Fit the ICP using the proper training set, and using valid set for early stopping
         self.icp = IcpSurvival(self.nc_model, condition=condition,
-                          decensor_method=decensor_method,
-                          n_quantiles=n_quantiles)
+                               decensor_method=decensor_method,
+                               n_quantiles=n_quantiles)
         self.icp.fit(trainset, valset, feature_names, verbose)
         
         # Calibrate the ICP using the calibration set

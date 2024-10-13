@@ -6,6 +6,9 @@ from utility.survival import compute_decensor_times
 from tools.scorer import SurvivalNC
 from utility.conformal import OnsSideQuantileRegErrFunc
 
+def default_condition(x):
+    return 0
+
 class IcpSurvival(BaseEstimator):
     """Inductive conformal survival predictor."""
     def __init__(
@@ -33,10 +36,9 @@ class IcpSurvival(BaseEstimator):
 
         # Check if condition-parameter is the default function (i.e.,
         # lambda x: 0). This is so we can safely clone the object without
-        # the clone accidentally having self.conditional = True.
-        default_condition = lambda x: 0
+        # the clone accidentally having self.conditional = True. 
         is_default = callable(condition) and (condition.__code__.co_code == default_condition.__code__.co_code)
-
+        
         if is_default:
             self.condition = condition
             self.conditional = False
@@ -44,7 +46,7 @@ class IcpSurvival(BaseEstimator):
             self.condition = condition
             self.conditional = True
         else:
-            self.condition = lambda x: 0
+            self.condition = default_condition
             self.conditional = False
 
         self.categories = None
