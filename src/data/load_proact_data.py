@@ -26,9 +26,9 @@ def annotate_left_censoring(row, event_name):
 
 def convert_weight(row):
     if row['Weight_Units'] in ['Kilograms', 'kg']:
-        return row['Baseline_Weight']  # Keep the value as is
+        return row['Weight']  # Keep the value as is
     elif row['Weight_Units'] == 'Pounds':
-        return row['Baseline_Weight'] * 0.453592  # Convert pounds to kg
+        return row['Weight'] * 0.453592  # Convert pounds to kg
     else:
         return None  # Handle any unexpected values
 
@@ -78,16 +78,13 @@ if __name__ == "__main__":
     
     # Annotate events
     threshold = 1
-    alsfrs_df[f'Event_Communication'] = (alsfrs_df['Q1_Speech'] <= threshold) | (alsfrs_df['Q4_Handwriting'] <= threshold)
-    alsfrs_df[f'Event_Movement'] = (alsfrs_df['Q6_Dressing_and_Hygiene'] <= threshold) | (alsfrs_df['Q8_Walking'] <= threshold)
-    alsfrs_df[f'Event_Swallowing'] = (alsfrs_df['Q3_Swallowing'] <= threshold)
-    alsfrs_df[f'Event_Breathing'] = (alsfrs_df['R_1_Dyspnea'] <= threshold) | (alsfrs_df['R_3_Respiratory_Insufficiency'] <= threshold)
-    event_names = ["Communication", "Movement", "Swallowing", "Breathing"]
-    for event_name in event_names:
+    event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
+    event_cols = ['Q1_Speech', 'Q3_Swallowing', 'Q4_Handwriting', 'Q8_Walking']
+    for event_name, event_col in zip(event_names, event_cols):
+        alsfrs_df[f'Event_{event_name}'] = (alsfrs_df[event_col] <= threshold).astype(int)
         event_df = alsfrs_df.groupby('subject_id').apply(annotate_event, f'Event_{event_name}').reset_index()
         event_df = event_df.rename({'Delta_Observed': f'TTE_{event_name}', 'Event': f'Event_{event_name}'}, axis=1)
         df = pd.merge(df, event_df, on="subject_id", how='left')
-        df[[f'TTE_{event_name}', f'Event_{event_name}']] = df.apply(lambda x: annotate_left_censoring(x, event_name), axis=1)
         
     # Record total ALSFRS-R score at baseline
     df = pd.merge(df, alsfrs_df[['subject_id', 'ALSFRS_R_Total']] \
@@ -103,11 +100,19 @@ if __name__ == "__main__":
     # Record vital signs
     vital_signs_df['Weight'] = vital_signs_df.apply(convert_weight, axis=1)
     vital_signs_df['Height'] = vital_signs_df.apply(convert_height, axis=1)
-    observed_heights = vital_signs_df.groupby('subject_id')['Height'].max().reset_index()
-    df = pd.merge(df, vital_signs_df[['subject_id', 'Weight']] \
+    observed_weights = vital_signs_df.groupby('subject_id')['Weight'].first().reset_index()
+    observed_heights = vital_signs_df.groupby('subject_id')['Height'].first().reset_index()
+    df = pd.merge(df, observed_weights[['subject_id', 'Weight']] \
          .drop_duplicates(subset='subject_id'), on="subject_id", how='left') # weight
     df = pd.merge(df, observed_heights[['subject_id', 'Height']] \
          .drop_duplicates(subset='subject_id'), on="subject_id", how='left') # height
+    min_weight, max_weight = 40, 120  # Normal human weight in kg
+    min_height, max_height = 150, 200  # Normal human height in cm
+    df['Weight'] = df['Weight'].where(df['Weight'].between(min_weight, max_weight), None)
+    df['Height'] = df['Height'].where(df['Height'].between(min_height, max_height), None)
+
+    # Calculate BMI
+    df['BMI'] = df['Weight'] / ((df['Height']/100) ** 2)
     
     # Record site of onset
     soo = history_df.drop_duplicates(subset='subject_id')[['subject_id', 'Site_of_Onset']].copy(deep=True)
@@ -167,4 +172,4 @@ if __name__ == "__main__":
     df = df.reset_index(drop=True)
     
     # Save df
-    df.to_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed_idea3.csv')
+    df.to_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed.csv')

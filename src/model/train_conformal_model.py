@@ -25,7 +25,7 @@ torch.set_default_dtype(dtype)
 # Setup device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-dataset_name = "proact"
+dataset_name = "calsnic"
 
 if __name__ == "__main__":
     # Load data

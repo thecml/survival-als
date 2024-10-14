@@ -16,8 +16,7 @@ MCD_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mcd')
 
 PATIENT_COLS = ['PSCID', 'Visit Label', 'Diagnosis', 'Age', 'Sex', 'Handedness',
                 'MedicalExamination_Riluzole', 'YearsEd', 'SymptomOnset_Date',
-                'Symptom_Duration', 'Visit_details', 'Visit_Date', 'Region_of_Onset',
-                'CNSLS_Date', 'CNSLS_TotalScore']
+                'Symptom_Duration', 'Visit_details', 'Visit_Date', 'Region_of_Onset']
 SURVIVAL_COLS = ['Status', 'Date of death', 'Cause of death']
 ALSFRS_COLS = ["ALSFRS_Date", "ALSFRS_1_Speech", "ALSFRS_2_Salivation", "ALSFRS_3_Swallowing",
                 "ALSFRS_Bulbar_Subscore", "ALSFRS_4_Handwriting", "ALSFRS_GastrostomyPresent",
@@ -29,6 +28,7 @@ TAP_COLS = ["TAP_Trial1RightFinger", "TAP_Trial1LeftFinger", "TAP_Trial2RightFin
             "TAP_Trial1RightFoot", "TAP_Trial1LeftFoot", "TAP_Trial2RightFoot", "TAP_Trial2LeftFoot",
             "TAP_Fingertapping_Right_avg", "TAP_Fingertapping_Left_avg", "TAP_Foottapping_Right_avg", "TAP_Foottapping_Left_avg"]
 UMN_COLS = ['UMN_Right', 'UMN_Left', 'LMN_Right', 'LMN_Left']
+ECAS_COLS = ['ECAS_ALSNonSpecific Total', 'ECAS_ALSSpecific Total']
 
 COXPH_PARAMS = {
     'alpha': 0,

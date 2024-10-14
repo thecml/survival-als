@@ -49,7 +49,7 @@ if __name__ == '__main__':
     
     df = patient_df.merge(survival_df, on=['PSCID']) # Merge the two datasets
     df = df[cfg.PATIENT_COLS + cfg.SURVIVAL_COLS + cfg.ALSFRS_COLS
-            + cfg.TAP_COLS + cfg.UMN_COLS] # Select relevant features
+            + cfg.UMN_COLS + cfg.ECAS_COLS] # Select relevant features
     
     fvc1_df['PSCID'] = fvc1_df['Record ID'].str.strip()
     fvc2_df['PSCID'] = fvc2_df['PSCID'].str.strip()
@@ -105,6 +105,10 @@ if __name__ == '__main__':
     df['Subject_used_Riluzole'] = df['Subject_used_Riluzole'].replace('yes', 'Yes')
     df['Subject_used_Riluzole'] = df['Subject_used_Riluzole'].fillna('Unknown')
     
+    # Record ECAS
+    df = df.rename(columns={'ECAS_ALSNonSpecific Total': 'ECAS_ALSNonSpecific_Total',
+                            'ECAS_ALSSpecific Total': 'ECAS_ALSSpecific_Total'})
+    
     # Record FVC mean
     fvc1_df_cols = ['FVC Trial1L', 'FVC Trial2L', 'FVC Trial3L', 'FVC Trial4L', 'FVC Trial5L']
     fvc2_df_cols = ['trial_one', 'trial_two', 'trial_three', 'trial_four', 'trial_five']
@@ -133,7 +137,10 @@ if __name__ == '__main__':
     df['Ethnicity'] = df['Ethnicity'].fillna('Unknown')
     df['Weight'] = df['FVC Weight (kg)'].combine_first(df['Weight'])
     df['Height'] = df['FVC Height (cm)'].combine_first(df['Height'])
-    df = df.drop(columns=['FVC_Average', 'FVC Height (cm)', 'FVC Weight (kg)'])
+    df = df.drop(columns=['FVC Height (cm)', 'FVC Weight (kg)'])
+    
+    # Calculate BMI
+    df['BMI'] = df['Weight'] / ((df['Height']/100) ** 2)
     
     # Calculate days between visitations
     df['Visit_Diff'] = df.groupby(['PSCID'])['Visit_Date'].diff().dt.days.fillna(0).astype(int)
@@ -152,11 +159,11 @@ if __name__ == '__main__':
 
     # Annotate events
     threshold = 1
-    df[f'Event_Communication'] = (df['ALSFRS_1_Speech'] <= threshold) | (df['ALSFRS_4_Handwriting'] <= threshold)
-    df[f'Event_Movement'] = (df['ALSFRS_6_Dressing&hygiene'] <= threshold) | (df['ALSFRS_8_Walking'] <= threshold)
+    df[f'Event_Speech'] = (df['ALSFRS_1_Speech'] <= threshold)
     df[f'Event_Swallowing'] = (df['ALSFRS_3_Swallowing'] <= threshold)
-    df[f'Event_Breathing'] = (df['ALSFRS_10_Dyspnea'] <= threshold) | (df['ALSFRS_12_RespiratoryInsufficiency'] <= threshold)
-    event_names = ["Communication", "Movement", "Swallowing", "Breathing"]
+    df[f'Event_Handwriting'] = (df['ALSFRS_4_Handwriting'] <= threshold)
+    df[f'Event_Walking'] = (df['ALSFRS_8_Walking'] <= threshold)
+    event_names = ["Speech", "Swallowing", "Handwriting", "Walking"]
     for event_col in event_names:
         df[f'Event_{event_col}'] = df.groupby('PSCID')[f'Event_{event_col}'].shift(-1)
         df[f'TTE_{event_col}']  = df.groupby('PSCID')['Visit_Diff'].shift(-1)
@@ -180,7 +187,7 @@ if __name__ == '__main__':
     #event_df = df.loc[~df['PSCID'].isin(left_censored)]
     
     # Drop NA and reset index
-    event_cols = ["Event_Communication", "Event_Movement", "Event_Swallowing", "Event_Breathing"]
+    event_cols = ["Event_Speech", "Event_Swallowing", "Event_Handwriting", "Event_Walking"]
     df = df.dropna(subset=event_cols).reset_index(drop=True)
     
     # Rename cols

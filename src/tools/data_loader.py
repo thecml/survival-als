@@ -60,13 +60,13 @@ class PROACTDataLoader(BaseDataLoader):
     Data loader for ALS dataset (ME). Uses the PRO-ACT dataset.
     """
     def load_data(self, n_samples:int = None):
-        df = pd.read_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed_idea1.csv', index_col=0)
+        df = pd.read_csv(f'{cfg.PROACT_DATA_DIR}/proact_processed.csv', index_col=0)
         if n_samples:
             df = df.sample(n=n_samples, random_state=0)
         label_cols = [col for col in df.columns if any(substring in col for substring in ['Event', 'TTE'])]
         event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
         for event_name in event_names:
-            df = df.loc[(df[f'TTE_{event_name}'] > 0) & (df[f'TTE_{event_name}'] <= 365)] # 0 - 500
+            df = df.loc[(df[f'TTE_{event_name}'] > 0) & (df[f'TTE_{event_name}'] <= 500)] # 0 - 500
         df = df.dropna(subset='Handgrip_Strength') # drop rows with no handgrip test
         df['El_escorial'] = df['El_escorial'].replace('Possible', 'Probable') # Replace "Possible" with "Probable"
         df = df.drop('Race_Caucasian', axis=1) # Drop race information
@@ -127,9 +127,10 @@ class CALSNICDataLoader(BaseDataLoader):
         if n_samples:
             df = df.sample(n=n_samples, random_state=0)
         events = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
-        self.X = df[['Visit', 'Symptom_Duration', 'CNSLS_TotalScore', 'TAP_Fingertapping_Right_avg',
-                     'TAP_Fingertapping_Left_avg', 'TAP_Foottapping_Right_avg', 'Region_of_Onset',
-                     'TAP_Foottapping_Left_avg', 'UMN_Right', 'UMN_Left', 'Age', 'SymptomDays']] # Add FVC
+        self.X = df[['Visit', 'SymptomDays', 'ALSFRS_TotalScore', 'Region_of_Onset',
+                     'ECAS_ALSNonSpecific_Total', 'ECAS_ALSSpecific_Total',
+                     'UMN_Right', 'UMN_Left', 'LMN_Right', 'LMN_Left',
+                     'FVC_Average', 'Subject_used_Riluzole']]
         self.columns = list(self.X.columns)
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
