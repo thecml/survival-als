@@ -114,16 +114,16 @@ if __name__ == '__main__':
     fvc2_df_cols = ['trial_one', 'trial_two', 'trial_three', 'trial_four', 'trial_five']
     fvc1_df[fvc1_df_cols] = fvc1_df[fvc1_df_cols].apply(pd.to_numeric, errors='coerce')
     fvc2_df[fvc2_df_cols] = fvc2_df[fvc2_df_cols].apply(pd.to_numeric, errors='coerce')
-    fvc1_df['FVC_Average'] = fvc1_df[fvc1_df_cols].mean(axis=1, skipna=True)
-    fvc2_df['FVC_Average'] = fvc2_df[fvc2_df_cols].mean(axis=1, skipna=True)
+    fvc1_df['FVC_Mean'] = fvc1_df[fvc1_df_cols].mean(axis=1, skipna=True)
+    fvc2_df['FVC_Mean'] = fvc2_df[fvc2_df_cols].mean(axis=1, skipna=True)
     fvc1_df = fvc1_df.rename({'Visit': 'Visit Label'}, axis=1)
     visit_mapping = {'V1': 'Visit 1', 'V2': 'Visit 2', 'V3': 'Visit 3', 'V4': 'Visit 4', 'V5': 'Visit 5',
                      'V6': 'Visit 6', 'V7': 'Visit 7', 'V8': 'Visit 8', 'V9': 'Visit 9', 'V10': 'Visit 10'}
     fvc2_df['Visit Label'] = fvc2_df['Visit Label'].replace(visit_mapping)
-    df = pd.merge(df, fvc1_df[['PSCID', 'Visit Label', 'FVC_Average']], on=['PSCID', 'Visit Label'], how='left')
-    df = pd.merge(df, fvc2_df[['PSCID', 'Visit Label', 'FVC_Average']], on=['PSCID', 'Visit Label'], how='left')
-    df['FVC_Average'] = df['FVC_Average_x'].combine_first(df['FVC_Average_y'])
-    df = df.drop(columns=['FVC_Average_x', 'FVC_Average_y'])
+    df = pd.merge(df, fvc1_df[['PSCID', 'Visit Label', 'FVC_Mean']], on=['PSCID', 'Visit Label'], how='left')
+    df = pd.merge(df, fvc2_df[['PSCID', 'Visit Label', 'FVC_Mean']], on=['PSCID', 'Visit Label'], how='left')
+    df['FVC_Mean'] = df['FVC_Mean_x'].combine_first(df['FVC_Mean_y'])
+    df = df.drop(columns=['FVC_Mean_x', 'FVC_Mean_y'])
     
     # Record race, height and weight
     df = pd.merge(df, fvc1_df[['PSCID', 'Visit Label', 'FVC Ethnicity',
@@ -158,7 +158,7 @@ if __name__ == '__main__':
     #df['ALSFRS_Breathing_subscore'] = df['ALSFRS_10_Dyspnea'] + df['ALSFRS_11_Orthopnea'] + df['ALSFRS_12_RespiratoryInsufficiency']
 
     # Annotate events
-    threshold = 1
+    threshold = 2
     df[f'Event_Speech'] = (df['ALSFRS_1_Speech'] <= threshold)
     df[f'Event_Swallowing'] = (df['ALSFRS_3_Swallowing'] <= threshold)
     df[f'Event_Handwriting'] = (df['ALSFRS_4_Handwriting'] <= threshold)

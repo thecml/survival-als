@@ -8,6 +8,12 @@ import numpy as np
 N_DECIMALS = 2
 ALPHA = 0.05
 
+# Given p-values
+#p_values = [0.818, 0.16, 0.792, 0.637]
+
+# Use Fisher's method to combine p-values
+#statistic, combined_p_value = stats.combine_pvalues(p_values, method='fisher') # use combined_p_value
+
 def calculate_calib(df, metric_name, dataset_name, event_id):
     results = df.loc[(df['DatasetName'] == dataset_name)]
     num_seeds = df['Seed'].nunique()

@@ -66,15 +66,11 @@ class PROACTDataLoader(BaseDataLoader):
         label_cols = [col for col in df.columns if any(substring in col for substring in ['Event', 'TTE'])]
         event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
         for event_name in event_names:
-            df = df.loc[(df[f'TTE_{event_name}'] > 0) & (df[f'TTE_{event_name}'] <= 500)] # 0 - 500
-        df = df.dropna(subset='Handgrip_Strength') # drop rows with no handgrip test
-        df['El_escorial'] = df['El_escorial'].replace('Possible', 'Probable') # Replace "Possible" with "Probable"
+            df = df.loc[(df[f'TTE_{event_name}'] > 0) & (df[f'TTE_{event_name}'] <= 365)] # 1 - 365
+        df = df.drop(df.filter(like='_Strength').columns, axis=1) # Drop strength tests
         df = df.drop('Race_Caucasian', axis=1) # Drop race information
         df = df.drop('El_escorial', axis=1) # Drop el_escorial
-        df = df.drop(['Height', 'Weight'], axis=1) # drop height/weight
-        df = df.drop(columns=['ABDUCTOR_POLLICIS_BREVIS_Strength',
-                              'SHOULDER_Strength',
-                              'FIRST_DORSAL_INTEROSSEOUS_OF_THE_HAND_Strength'], axis=1) # drop rare strength tests
+        df = df.drop(['Height', 'Weight', 'BMI'], axis=1) # Drop height/weight/bmi
         self.X = df.drop(label_cols, axis=1)
         self.columns = list(self.X.columns)
         self.num_features = self._get_num_features(self.X)
@@ -126,16 +122,18 @@ class CALSNICDataLoader(BaseDataLoader):
         df = pd.read_csv(f'{cfg.CALSNIC_DATA_DIR}/calsnic_processed.csv', index_col=0)
         if n_samples:
             df = df.sample(n=n_samples, random_state=0)
-        events = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
+        event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
+        for event_name in event_names:
+            df = df.loc[(df[f'TTE_{event_name}'] > 0) & (df[f'TTE_{event_name}'] <= 365)] # 1 - 365
         self.X = df[['Visit', 'SymptomDays', 'ALSFRS_TotalScore', 'Region_of_Onset',
                      'ECAS_ALSNonSpecific_Total', 'ECAS_ALSSpecific_Total',
                      'UMN_Right', 'UMN_Left', 'LMN_Right', 'LMN_Left',
-                     'FVC_Average', 'Subject_used_Riluzole']]
+                     'FVC_Mean', 'Subject_used_Riluzole']]
         self.columns = list(self.X.columns)
         self.num_features = self._get_num_features(self.X)
         self.cat_features = self._get_cat_features(self.X)
-        times = [df[f'TTE_{event_col}'].values for event_col in events]
-        events = [df[f'Event_{event_col}'].values for event_col in events]
+        times = [df[f'TTE_{event_col}'].values for event_col in event_names]
+        events = [df[f'Event_{event_col}'].values for event_col in event_names]
         self.y_t = np.stack((times[0], times[1], times[2], times[3]), axis=1)
         self.y_e = np.stack((events[0], events[1], events[2], events[3]), axis=1)
         self.n_events = 4

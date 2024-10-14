@@ -25,7 +25,7 @@ torch.set_default_dtype(dtype)
 # Setup device
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-dataset_name = "calsnic"
+dataset_name = "proact"
 
 if __name__ == "__main__":
     # Load data
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     model = ConformalMensa(n_features, time_bins=time_bins,
                            n_events=n_events, device=device, config=config)
     datasets = [train_dict, valid_dict]
-    model.fit_calibrate(datasets, feature_names, decensor_method="margin", condition=None)
+    model.fit_calibrate(datasets, feature_names, decensor_method="sampling", condition=None)
 
     # Make predictions
     all_preds = []
