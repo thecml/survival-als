@@ -1,3 +1,5 @@
+from pathlib import Path
+import joblib
 import pandas as pd
 import numpy as np
 import config as cfg
@@ -117,3 +119,7 @@ if __name__ == "__main__":
         print(f"Evaluated E{i+1}: CI={round(ci, 3)}, IBS={round(ibs, 3)}, " +
               f"MAE={round(mae_margin, 3)}, D-Calib={round(d_calib, 3)}, " +
               f"KM MAE: {round(km_mae, 3)}")
+
+    # Save model
+    path = Path.joinpath(cfg.MODELS_DIR, f"mensa_{dataset_name}.pkl")
+    joblib.dump(model, path)
