@@ -115,10 +115,15 @@ if __name__ == "__main__":
     df['BMI'] = df['Weight'] / ((df['Height']/100) ** 2)
     
     # Record site of onset
-    soo = history_df.drop_duplicates(subset='subject_id')[['subject_id', 'Site_of_Onset']].copy(deep=True)
+    soo = history_df.drop_duplicates(subset='subject_id')[['subject_id',
+                                                           'Site_of_Onset',
+                                                           'Onset_Delta']].copy(deep=True)
     soo['Site_of_Onset'] = soo['Site_of_Onset'].str.replace('Onset: ', '', regex=False)
     soo['Site_of_Onset'] = soo['Site_of_Onset'].str.replace('Limb and Bulbar', 'LimbAndBulbar', regex=False)
     df = pd.merge(df, soo, on="subject_id", how='left')
+    
+    # Calculate disease progression rate
+    df['DiseaseProgressionRate'] = (48 - df['ALSFRS_R_Total']) / (abs(df['Onset_Delta'])/30)
     
     # Record Riluzole use
     riluzole_use = riluzole_df[['subject_id', 'Subject_used_Riluzole']].copy(deep=True)
