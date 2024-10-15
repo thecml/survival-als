@@ -47,8 +47,7 @@ torch.set_default_dtype(dtype)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Define models
-#MODELS = ['coxph', 'rsf', 'deepsurv', 'deephit', 'hierarch', 'mtlr', 'mensa', 'conformal']
-MODELS = ['conformal']
+MODELS = ['coxph', 'rsf', 'deepsurv', 'hierarch', 'mtlr', 'mensa']
           
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -279,7 +278,8 @@ if __name__ == "__main__":
             raise NotImplementedError()
     
         # Evaluate predictions each event
-        model_results = pd.DataFrame()
+        result_cols = ["DatasetName", "ModelName", "Seed", "EventId",
+                       "CI", "IBS", "MAEM", "MAEKM", "DCalib"]
         for event_id, surv_pred in enumerate(all_preds):
             y_train_time = train_dict['T'][:,event_id].cpu().numpy()
             y_train_event = train_dict['E'][:,event_id].cpu().numpy()
@@ -304,17 +304,15 @@ if __name__ == "__main__":
             
             metrics = [ci, ibs, mae_margin, km_mae, d_calib]
             print(f'{model_name} E{event_id+1}: ' + str(metrics))
-            res_sr = pd.Series([dataset_name, seed, event_id] + metrics,
-                                index=["DatasetName", "Seed", "EventId", "CI",
-                                       "IBS", "MAEM", "MAEKM", "DCalib"])
-            model_results = pd.concat([model_results, res_sr.to_frame().T], ignore_index=True)
+            res_sr = pd.Series([dataset_name, model_name, seed, event_id+1] + metrics,
+                                index=result_cols)
     
             # Save results
             filename = f"{cfg.RESULTS_DIR}/model_results.csv"
             if os.path.exists(filename):
                 results = pd.read_csv(filename)
             else:
-                results = pd.DataFrame(columns=model_results.columns)
-            results = pd.concat([results, model_results], ignore_index=True)
+                results = pd.DataFrame(columns=result_cols)
+            results = pd.concat([results, res_sr.to_frame().T], ignore_index=True)
             results.to_csv(filename, index=False)
                 
