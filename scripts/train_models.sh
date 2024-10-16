@@ -8,7 +8,7 @@ if [[ -z "$base_path" ]] ; then  # error; for some reason, the path is not acces
 fi
 echo "$base_path"
 
-results_path=$base_path/../results/model_results.csv
+results_path=$base_path/results/model_results.csv
 if [ -f "$results_path" ]; then
   rm $results_path
 fi
@@ -19,6 +19,6 @@ seeds=(0 1 2 3 4 5 6 7 8 9)
 for dataset_name in "${dataset_names[@]}"; do
     for seed in "${seeds[@]}"; do
         echo "Running $dataset_name with seed $seed"
-        python3 $base_path/../src/train_models.py --dataset_name "$dataset_name" --seed "$seed"
+        python3 $base_path/src/train_models.py --dataset_name "$dataset_name" --seed "$seed"
     done
 done
