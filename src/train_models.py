@@ -98,13 +98,14 @@ if __name__ == "__main__":
     for model_name in MODELS:
         if model_name == "coxph":
             config = dotdict(cfg.COXPH_PARAMS)
+            alpha = config['alpha']
             n_iter = config['n_iter']
             tol = config['tol']
             trained_models = []
             for i in range(n_events):
                 X_train = pd.DataFrame(train_dict['X'].cpu().numpy(), columns=feature_names)
                 y_train = convert_to_structured(train_dict['T'][:,i].cpu().numpy(), train_dict['E'][:,i].cpu().numpy())
-                model = CoxPHSurvivalAnalysis(alpha=0.0001)
+                model = CoxPHSurvivalAnalysis(alpha=alpha, n_iter=n_iter, tol=tol)
                 model.fit(X_train, y_train)
                 trained_models.append(model)
         elif model_name == "rsf":

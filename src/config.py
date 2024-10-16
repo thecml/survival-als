@@ -31,7 +31,7 @@ UMN_COLS = ['UMN_Right', 'UMN_Left', 'LMN_Right', 'LMN_Left']
 ECAS_COLS = ['ECAS_ALSNonSpecific Total', 'ECAS_ALSSpecific Total']
 
 COXPH_PARAMS = {
-    'alpha': 0,
+    'alpha': 0.001,
     'ties': 'breslow',
     'n_iter': 100,
     'tol': 1e-9

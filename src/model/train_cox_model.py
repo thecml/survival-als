@@ -40,7 +40,7 @@ if __name__ == "__main__":
         y_test = convert_to_structured(test_dict['T'][:,i], test_dict['E'][:,i])
     
         # Train model
-        model = CoxPHSurvivalAnalysis(alpha=0.0001)
+        model = CoxPHSurvivalAnalysis(alpha=0.001, n_iter=100)
         model.fit(X_train, y_train)
         
         # Evaluate
