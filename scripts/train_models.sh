@@ -18,6 +18,7 @@ seeds=(0 1 2 3 4 5 6 7 8 9)
 
 for dataset_name in "${dataset_names[@]}"; do
     for seed in "${seeds[@]}"; do
+    
         echo "Running $dataset_name with seed $seed"
         python3 $base_path/src/train_models.py --dataset_name "$dataset_name" --seed "$seed"
     done

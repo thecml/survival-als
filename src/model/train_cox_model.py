@@ -13,7 +13,7 @@ from SurvivalEVAL.Evaluator import LifelinesEvaluator
 from SurvivalEVAL.Evaluations.util import KaplanMeier
 from SurvivalEVAL import mean_error
 
-dataset_name = "calsnic"
+dataset_name = "proact"
 
 if __name__ == "__main__":
     # Load data
