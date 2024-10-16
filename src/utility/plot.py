@@ -31,6 +31,8 @@ def map_model_name(model_name):
         return "CoxPH"
     elif model_name == "dgp":
         model_name = "DGP"
+    elif model_name == "rsf":
+        model_name = "RSF"
     elif model_name == "dsm":
         model_name = "DSM"
     elif model_name == "deephit":

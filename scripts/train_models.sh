@@ -14,7 +14,7 @@ if [ -f "$results_path" ]; then
 fi
 
 dataset_names=('calsnic' 'proact')
-seeds=(0 1 2 3 4)
+seeds=(0 1 2 3 4 5 6 7 8 9)
 
 for dataset_name in "${dataset_names[@]}"; do
     for seed in "${seeds[@]}"; do
