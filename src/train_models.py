@@ -47,7 +47,7 @@ torch.set_default_dtype(dtype)
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Define models
-MODELS = ['coxph', 'rsf', 'deepsurv', 'mtlr', 'hierarch', 'mensa']
+MODELS = ['coxph', 'rsf', 'deepsurv', 'mtlr', 'mensa']
           
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -295,7 +295,7 @@ if __name__ == "__main__":
             
             # Calculate KM estimate
             km_model = KaplanMeier(y_train_time, y_train_event)
-            km_surv_prob = torch.from_numpy(km_model.predict(time_bins))
+            km_surv_prob = torch.from_numpy(km_model.predict(time_bins.cpu().numpy()))
             time_idx = np.where(km_surv_prob <= 0.5, km_surv_prob, -np.inf).argmax(axis=0)
             km_estimate = np.array(len(y_test_time)*[float(time_bins[time_idx])])
             km_mae = mean_error(km_estimate, event_times=y_test_time, event_indicators=y_test_event,
