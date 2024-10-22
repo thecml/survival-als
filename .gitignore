@@ -12,6 +12,9 @@ weight_*
 # Data
 data/*
 
+# Misc
+misc/*
+
 # Plots
 plots/*
 

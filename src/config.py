@@ -9,10 +9,11 @@ MODELS_DIR = Path.joinpath(ROOT_DIR, 'models')
 CONFIGS_DIR = Path.joinpath(ROOT_DIR, 'configs')
 RESULTS_DIR = Path.joinpath(ROOT_DIR, 'results')
 PLOTS_DIR = Path.joinpath(ROOT_DIR, 'plots')
+MISC_DIR = Path.joinpath(ROOT_DIR, 'misc')
 HIERARCH_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'hierarch')
 MENSA_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mensa')
-BAYESIAN_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'bayesian')
 MCD_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mcd')
+
 
 PATIENT_COLS = ['PSCID', 'Visit Label', 'Diagnosis', 'Age', 'Sex', 'Handedness',
                 'MedicalExamination_Riluzole', 'YearsEd', 'SymptomOnset_Date',
@@ -58,23 +59,6 @@ DEEPSURV_PARAMS = {
     'patience': 10
 }
 
-DEEPHIT_PARAMS = {
-    'num_nodes_shared': [32],
-    'num_nodes_indiv': [32],
-    'batch_norm': True,
-    'verbose': False,
-    'dropout': 0.25,
-    'alpha': 0.2,
-    'sigma': 0.1,
-    'batch_size': 128,
-    'lr': 0.001,
-    'weight_decay': 0.01,
-    'eta_multiplier': 0.8,
-    'epochs': 1000,
-    'early_stop': True,
-    'patience': 10,
-}
-
 MTLR_PARAMS = {
     'hidden_size': 32,
     'verbose': False,
@@ -87,32 +71,10 @@ MTLR_PARAMS = {
     'patience': 10
 }
 
-HIERARCH_PARAMS = {
-    'theta_layer_size': [100],
-    'layer_size_fine_bins': [(50, 5), (50, 5)],
-    'lr': 0.001,
-    'reg_constant': 0.05,
-    'n_batches': 10,
-    'batch_size': 32,
-    'backward_c_optim': False,
-    'hierarchical_loss': True,
-    'alpha': 0.0001,
-    'sigma': 10,
-    'use_theta': True,
-    'use_deephit': False,
-    'n_extra_bins': 1,
-    'verbose': True
-}
-
-SYNTHETIC_SETTINGS = {
-    "alpha_e1": 18,
-    "alpha_e2": 17,
-    "alpha_e3": 16,
-    "gamma_e1": 4,
-    "gamma_e2": 4,
-    "gamma_e3": 4,
-    "n_events": 3,
-    "n_samples": 5000,
-    "n_features": 10,
-    "adm_censoring_time": 10
+MENSA_PARAMS = {
+    "layers": [32],
+    "lr": 0.001,
+    "n_epochs": 1000,
+    "n_dists": 3,
+    "batch_size": 32
 }

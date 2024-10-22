@@ -4,17 +4,11 @@ from SurvivalEVAL import mean_error
 import pandas as pd
 import numpy as np
 import config as cfg
-from conformal.model import ConformalMensa
-from sota.deephit.utility import format_data_deephit_single, make_deephit_single, train_deephit_model
 from sota.deepsurv.model import DeepSurv
 from sota.deepsurv.utility import make_deepsurv_prediction, train_deepsurv_model
-from sota.hierarchical.helper import format_hierarchical_hyperparams
 from sota.mtlr.model import mtlr
 from sota.mtlr.utility import make_mtlr_prediction, train_mtlr_model
-from utility.data import calculate_layer_size_hierarch, format_hierarchical_data_me
-from utility.survival import (coverage, make_stratified_split, convert_to_structured,
-                              make_time_bins, make_event_times, preprocess_data,
-                              predict_median_survival_times)
+from utility.survival import convert_to_structured, make_time_bins, preprocess_data
 import torch
 import random
 from scipy.interpolate import interp1d
@@ -22,12 +16,9 @@ from tools.data_loader import get_data_loader
 from SurvivalEVAL.Evaluator import LifelinesEvaluator
 from SurvivalEVAL.Evaluations.util import KaplanMeier
 from utility.config import load_config
-from sota.hierarchical import util
 from sksurv.linear_model import CoxPHSurvivalAnalysis
 from sksurv.ensemble import RandomSurvivalForest
-
 from sota.mensa.model import MENSA
-from utility.conformal import quantile_to_survival
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -138,31 +129,6 @@ if __name__ == "__main__":
                 model = train_deepsurv_model(model, data_train, data_valid, time_bins, config=config,
                                              random_state=0, reset_model=True, device=device, dtype=dtype)
                 trained_models.append(model)
-        elif model_name == "deephit":
-            config = dotdict(cfg.DEEPHIT_PARAMS)
-            trained_models = []
-            for i in range(n_events):
-                model = make_deephit_single(in_features=n_features, out_features=len(time_bins),
-                                            time_bins=time_bins.cpu().numpy(), device=device, config=config)
-                labtrans = model.label_transform
-                train_data, valid_data, out_features, duration_index = format_data_deephit_single(train_dict, valid_dict, labtrans, event_id=i)
-                model = train_deephit_model(model, train_data['X'], (train_data['T'], train_data['E']),
-                                            (valid_data['X'], (valid_data['T'], valid_data['E'])), config)
-                trained_models.append(model)
-        elif model_name == "hierarch":
-            config = load_config(cfg.HIERARCH_CONFIGS_DIR, f"{dataset_name}.yaml")
-            n_time_bins = len(time_bins)
-            train_data, valid_data, test_data = format_hierarchical_data_me(train_dict, valid_dict, test_dict, n_time_bins)
-            config['min_time'] = int(train_data[1].min())
-            config['max_time'] = int(train_data[1].max())
-            config['num_bins'] = n_time_bins
-            params = cfg.HIERARCH_PARAMS
-            params['n_batches'] = int(n_samples/params['batch_size'])
-            layer_size = params['layer_size_fine_bins'][0][0]
-            params['layer_size_fine_bins'] = calculate_layer_size_hierarch(layer_size, n_time_bins)
-            hyperparams = format_hierarchical_hyperparams(params)
-            verbose = params['verbose']
-            model = util.get_model_and_output("hierarch_full", train_data, test_data, valid_data, config, hyperparams, verbose)
         elif model_name == "mtlr":
             config = dotdict(cfg.MTLR_PARAMS)
             trained_models = []
@@ -194,12 +160,6 @@ if __name__ == "__main__":
             model = MENSA(n_features, n_events, n_dists=n_dists, layers=layers, device=device)
             model.fit(train_dict, valid_dict, learning_rate=lr, n_epochs=n_epochs,
                       patience=10, batch_size=batch_size, verbose=False)
-        elif model_name == "conformal":
-            config = load_config(cfg.MENSA_CONFIGS_DIR, f"{dataset_name}.yaml")
-            model = ConformalMensa(n_features, time_bins=time_bins, n_events=n_events, device=device, config=config)
-            datasets = [train_dict, valid_dict]
-            feature_names = X_train.columns
-            model.fit_calibrate(datasets, feature_names, decensor_method="margin", condition=None, verbose=False)
         else:
             raise NotImplementedError()
     
@@ -235,19 +195,6 @@ if __name__ == "__main__":
                                   kind='linear', fill_value='extrapolate')
                 preds = pd.DataFrame(spline(time_bins.cpu().numpy()), columns=time_bins.cpu().numpy())
                 all_preds.append(preds)
-        elif model_name == "deephit":
-            all_preds = []
-            for trained_model in trained_models:
-                preds = trained_model.predict_surv(test_dict['X']).cpu().numpy()
-                preds = pd.DataFrame(preds, columns=time_bins.cpu().numpy())
-                all_preds.append(preds)
-        elif model_name == "hierarch":
-            event_preds = util.get_surv_curves(torch.tensor(test_data[0], dtype=dtype), model)
-            bin_locations = np.linspace(0, config['max_time'], event_preds[0].shape[1])
-            all_preds = []
-            for i in range(len(event_preds)):
-                preds = pd.DataFrame(event_preds[i], columns=bin_locations)
-                all_preds.append(preds)
         elif model_name == "mtlr":
             all_preds = []
             for i, trained_model in enumerate(trained_models):
@@ -268,13 +215,6 @@ if __name__ == "__main__":
                 preds = model.predict(test_dict['X'].to(device), time_bins, risk=i)
                 preds = pd.DataFrame(preds, columns=time_bins.cpu().numpy())
                 all_preds.append(preds)   
-        elif model_name == "conformal":
-            all_preds = []
-            quan_levels, quan_preds = model.predict(test_dict['X'])
-            for i in range(n_events):
-                preds = quantile_to_survival(quan_levels[i], quan_preds[i], time_bins)
-                preds = pd.DataFrame(preds, columns=time_bins.cpu().numpy())
-                all_preds.append(preds)
         else:
             raise NotImplementedError()
     
