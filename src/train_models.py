@@ -151,7 +151,7 @@ if __name__ == "__main__":
                                          reset_model=True, device=device)
                 trained_models.append(model)
         elif model_name == "mensa":
-            config = dotdict(load_config(cfg.MENSA_CONFIGS_DIR, f"{dataset_name}.yaml"))
+            config = cfg.MENSA_PARAMS
             n_epochs = config['n_epochs']
             n_dists = config['n_dists']
             lr = config['lr']
@@ -214,7 +214,7 @@ if __name__ == "__main__":
             for i in range(n_events):
                 preds = model.predict(test_dict['X'].to(device), time_bins, risk=i)
                 preds = pd.DataFrame(preds, columns=time_bins.cpu().numpy())
-                all_preds.append(preds)   
+                all_preds.append(preds)
         else:
             raise NotImplementedError()
     
