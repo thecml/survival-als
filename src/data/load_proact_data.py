@@ -16,13 +16,12 @@ def annotate_event(group, event_col):
 
 def annotate_left_censoring(row, event_name):
     if row[f'TTE_{event_name}'] == 0: # check if left-censored
-        tte = random.randint(0, row['Diagnosis_Delta']) # occured between diagnosis and t=0
+        tte = min(row['Diagnosis_Delta'], 365) # lower bound on t
         event_censored = True
     else:
-        tte = row[f'TTE_{event_name}']
+        tte = row[f'TTE_{event_name}'] # upper bound on t
         event_censored = False
-    return pd.Series({f'TTE_{event_name}': tte,
-                      f'Event_{event_name}': event_censored})
+    return pd.Series({f'TTE_{event_name}': tte,f'Event_{event_name}': event_censored})
 
 def convert_weight(row):
     if row['Weight_Units'] in ['Kilograms', 'kg']:
@@ -85,6 +84,7 @@ if __name__ == "__main__":
         event_df = alsfrs_df.groupby('subject_id').apply(annotate_event, f'Event_{event_name}').reset_index()
         event_df = event_df.rename({'Delta_Observed': f'TTE_{event_name}', 'Event': f'Event_{event_name}'}, axis=1)
         df = pd.merge(df, event_df, on="subject_id", how='left')
+        df[[f'TTE_{event_name}', f'Event_{event_name}']] = df.apply(lambda x: annotate_left_censoring(x, event_name), axis=1)
         
     # Record total ALSFRS-R score at baseline
     df = pd.merge(df, alsfrs_df[['subject_id', 'ALSFRS_R_Total']] \
