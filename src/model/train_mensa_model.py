@@ -53,7 +53,7 @@ if __name__ == "__main__":
         X_valid = pd.DataFrame(valid_dict['X'], columns=dl.columns)
         X_test = pd.DataFrame(test_dict['X'], columns=dl.columns)
         X_train, X_valid, X_test= preprocess_data(X_train, X_valid, X_test, cat_features,
-                                                num_features, as_array=True)
+                                                  num_features, as_array=True)
         train_dict['X'] = torch.tensor(X_train, device=device, dtype=dtype)
         train_dict['E'] = torch.tensor(train_dict['E'], device=device, dtype=torch.int64)
         train_dict['T'] = torch.tensor(train_dict['T'], device=device, dtype=torch.int64)
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     time_bins = torch.cat((torch.tensor([0]).to(device), time_bins))
     
     # Train model
-    config = load_config(cfg.MENSA_CONFIGS_DIR, f"{dataset_name}.yaml")
+    config = cfg.MENSA_PARAMS
     n_epochs = config['n_epochs']
     n_dists = config['n_dists']
     lr = config['lr']

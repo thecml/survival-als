@@ -14,7 +14,6 @@ HIERARCH_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'hierarch')
 MENSA_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mensa')
 MCD_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mcd')
 
-
 PATIENT_COLS = ['PSCID', 'Visit Label', 'Diagnosis', 'Age', 'Sex', 'Handedness',
                 'MedicalExamination_Riluzole', 'YearsEd', 'SymptomOnset_Date',
                 'Symptom_Duration', 'Visit_details', 'Visit_Date', 'Region_of_Onset']
