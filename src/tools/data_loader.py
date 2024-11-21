@@ -94,12 +94,9 @@ class PROACTDataLoader(BaseDataLoader):
         df['t2'] = self.y_t[:,1]
         df['t3'] = self.y_t[:,2]
         df['t4'] = self.y_t[:,3]
-        
-        # Create time column for splitting
-        df['time'] = make_multi_event_stratified_column(self.y_t)
-        df_train, df_valid, df_test = make_stratified_split(df, stratify_colname='time', frac_train=train_size,
+        df_train, df_valid, df_test = make_stratified_split(df, stratify_colname='multi', frac_train=train_size,
                                                             frac_valid=valid_size, frac_test=test_size,
-                                                            random_state=random_state)
+                                                            random_state=random_state, n_events=4)
         
         dataframes = [df_train, df_valid, df_test]
         event_cols = ['e1', 'e2', 'e3', 'e4']
@@ -107,13 +104,11 @@ class PROACTDataLoader(BaseDataLoader):
         dicts = []
         for dataframe in dataframes:
             data_dict = dict()
-            data_dict['X'] = dataframe.drop(event_cols + time_cols + ['time'], axis=1).values
+            data_dict['X'] = dataframe.drop(event_cols + time_cols, axis=1).values
             data_dict['E'] = np.stack([dataframe['e1'].values, dataframe['e2'].values,
-                                       dataframe['e3'].values, dataframe['e4'].values],
-                                      axis=1).astype(np.int64)
+                                       dataframe['e3'].values, dataframe['e4'].values], axis=1).astype(np.int64)
             data_dict['T'] = np.stack([dataframe['t1'].values, dataframe['t2'].values,
-                                       dataframe['t3'].values, dataframe['t4'].values],
-                                      axis=1).astype(np.int64)
+                                       dataframe['t3'].values, dataframe['t4'].values], axis=1).astype(np.int64)
             dicts.append(data_dict)
             
         return dicts[0], dicts[1], dicts[2]
