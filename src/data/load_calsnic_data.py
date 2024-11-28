@@ -29,7 +29,7 @@ def convert_height(row):
     else:
         return None  # Handle any unexpected values
 
-def annotate_left_censoring(row, event_name):
+def annotate_already_occured(row, event_name):
     if (row['Visit Label'] == 'Visit 1') and (row[f'Event_{event_name}'] == True):
         tte = min(row['SymptomDays'], 365) # lower bound on t
         event_censored = True
@@ -181,9 +181,9 @@ if __name__ == '__main__':
     df = df.rename(columns=lambda x: x.replace('Event_ALSFRS_', 'Event_') \
                    .replace('TTE_ALSFRS_', 'TTE_').replace('_subscore', ''))
     
-    # Handle left-censoring
+    # Handle already occured
     for event_col in event_names:
-        df[[f'TTE_{event_col}', f'Event_{event_col}']] = df.apply(lambda x: annotate_left_censoring(x, event_col), axis=1)
+        df[[f'TTE_{event_col}', f'Event_{event_col}']] = df.apply(lambda x: annotate_already_occured(x, event_col), axis=1)
 
     # Use only first visit
     #df = df.loc[df['Visit Label'] == 'Visit 1']

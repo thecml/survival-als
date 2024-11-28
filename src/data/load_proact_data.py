@@ -14,9 +14,9 @@ def annotate_event(group, event_col):
         delta_sum_observed = group['ALSFRS_Delta'].max()
     return pd.Series({'Delta_Observed': delta_sum_observed, 'Event': event_observed})
 
-def annotate_left_censoring(row, event_name):
-    if row[f'TTE_{event_name}'] == 0: # check if left-censored
-        tte = row['Onset_Delta'] # left-censored at onset time
+def annotate_already_occured(row, event_name):
+    if row[f'TTE_{event_name}'] == 0: # check if already occured
+        tte = row['Onset_Delta'] # already occured at onset time
         event = -1
     else:
         tte = row[f'TTE_{event_name}']
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         event_df = alsfrs_df.groupby('subject_id').apply(annotate_event, f'Event_{event_name}').reset_index()
         event_df = event_df.rename({'Delta_Observed': f'TTE_{event_name}', 'Event': f'Event_{event_name}'}, axis=1)
         df = pd.merge(df, event_df, on="subject_id", how='left')
-        df[[f'TTE_{event_name}', f'Event_{event_name}']] = df.apply(lambda x: annotate_left_censoring(x, event_name), axis=1)
+        df[[f'TTE_{event_name}', f'Event_{event_name}']] = df.apply(lambda x: annotate_already_occured(x, event_name), axis=1)
         
     # Record total ALSFRS-R score at baseline
     df = pd.merge(df, alsfrs_df[['subject_id', 'ALSFRS_R_Total']] \
