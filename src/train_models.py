@@ -154,7 +154,7 @@ if __name__ == "__main__":
                 layers = config['layers']
                 model = MENSA(n_features, n_events, n_dists=n_dists, layers=layers, device=device)
                 model.fit(train_dict, valid_dict, learning_rate=lr, n_epochs=n_epochs,
-                        patience=10, batch_size=batch_size, verbose=False)
+                          patience=10, batch_size=batch_size, verbose=False)
             else:
                 raise NotImplementedError()
         

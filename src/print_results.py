@@ -10,6 +10,9 @@ if __name__ == "__main__":
     path = Path.joinpath(cfg.RESULTS_DIR, f"model_results.csv")
     df = pd.read_csv(path)
     
+    cols_to_scale = ["CI", "IBS"]
+    df[cols_to_scale] = df[cols_to_scale] * 100
+    
     dataset_names = ["proact"]
     model_names = ['coxph', 'rsf', 'deepsurv', 'mtlr', 'mensa']
     event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
