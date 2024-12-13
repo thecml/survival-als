@@ -1,7 +1,5 @@
 import pandas as pd
 from pathlib import Path
-import glob
-import os
 import config as cfg
 import numpy as np
 
@@ -11,7 +9,6 @@ ALPHA = 0.05
 if __name__ == "__main__":
     path = Path.joinpath(cfg.RESULTS_DIR, f"model_results.csv")
     df = pd.read_csv(path)
-    df = df.round(N_DECIMALS).fillna(0)
     
     dataset_names = ["proact"]
     model_names = ['coxph', 'rsf', 'deepsurv', 'mtlr', 'mensa']

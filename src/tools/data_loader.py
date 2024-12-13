@@ -2,13 +2,10 @@ import numpy as np
 import pandas as pd
 from abc import ABC, abstractmethod
 from typing import List
-from pathlib import Path
 import config as cfg
 import numpy as np
-from utility.dgp import DGP_Weibull_linear, DGP_Weibull_nonlinear
-from utility.survival import make_multi_event_stratified_column, make_stratified_split
+from utility.survival import make_stratified_split
 import torch
-import random
 
 class BaseDataLoader(ABC):
     """
@@ -113,66 +110,8 @@ class PROACTDataLoader(BaseDataLoader):
             
         return dicts[0], dicts[1], dicts[2]
     
-class CALSNICDataLoader(BaseDataLoader):
-    def load_data(self, n_samples:int = None):
-        df = pd.read_csv(f'{cfg.CALSNIC_DATA_DIR}/calsnic_processed.csv', index_col=0)
-        if n_samples:
-            df = df.sample(n=n_samples, random_state=0)
-        event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
-        for event_name in event_names:
-            df = df.loc[(df[f'TTE_{event_name}'] > 0) & (df[f'TTE_{event_name}'] <= 500)] # 1 - 500
-        self.X = df[['Visit', 'SymptomDays', 'ALSFRS_TotalScore', 'Region_of_Onset',
-                     'ECAS_ALSNonSpecific_Total', 'ECAS_ALSSpecific_Total',
-                     'UMN_Right', 'UMN_Left', 'LMN_Right', 'LMN_Left',
-                     'FVC_Mean', 'Subject_used_Riluzole']]
-        self.columns = list(self.X.columns)
-        self.num_features = self._get_num_features(self.X)
-        self.cat_features = self._get_cat_features(self.X)
-        times = [df[f'TTE_{event_col}'].values for event_col in event_names]
-        events = [df[f'Event_{event_col}'].values for event_col in event_names]
-        self.y_t = np.stack((times[0], times[1], times[2], times[3]), axis=1)
-        self.y_e = np.stack((events[0], events[1], events[2], events[3]), axis=1)
-        self.n_events = 4
-        return self
-    
-    def split_data(self, train_size: float, valid_size: float,
-                   test_size: float, dtype=torch.float64, random_state=0):
-        df = pd.DataFrame(self.X)
-        df['e1'] = self.y_e[:,0]
-        df['e2'] = self.y_e[:,1]
-        df['e3'] = self.y_e[:,2]
-        df['e4'] = self.y_e[:,3]
-        df['t1'] = self.y_t[:,0]
-        df['t2'] = self.y_t[:,1]
-        df['t3'] = self.y_t[:,2]
-        df['t4'] = self.y_t[:,3]
-        df['time'] = make_multi_event_stratified_column(self.y_t)
-        
-        df_train, df_valid, df_test = make_stratified_split(df, stratify_colname='time', frac_train=train_size,
-                                                            frac_valid=valid_size, frac_test=test_size,
-                                                            random_state=random_state)
-        
-        dataframes = [df_train, df_valid, df_test]
-        event_cols = ['e1', 'e2', 'e3', 'e4']
-        time_cols = ['t1', 't2', 't3', 't4']
-        dicts = []
-        for dataframe in dataframes:
-            data_dict = dict()
-            data_dict['X'] = dataframe.drop(event_cols + time_cols + ['time'], axis=1).values
-            data_dict['E'] = np.stack([dataframe['e1'].values, dataframe['e2'].values,
-                                       dataframe['e3'].values, dataframe['e4'].values],
-                                      axis=1).astype(np.int64)
-            data_dict['T'] = np.stack([dataframe['t1'].values, dataframe['t2'].values,
-                                       dataframe['t3'].values, dataframe['t4'].values],
-                                      axis=1).astype(np.int64)
-            dicts.append(data_dict)
-            
-        return dicts[0], dicts[1], dicts[2]
-    
 def get_data_loader(dataset_name:str) -> BaseDataLoader:
     if dataset_name == "proact":
         return PROACTDataLoader()
-    elif dataset_name == "calsnic":
-        return CALSNICDataLoader()
     else:
         raise ValueError("Dataset not found")

@@ -1,5 +1,6 @@
-import argparse
 import os
+import torch
+import random
 from SurvivalEVAL import mean_error
 import pandas as pd
 import numpy as np
@@ -9,13 +10,10 @@ from sota.deepsurv.utility import make_deepsurv_prediction, train_deepsurv_model
 from sota.mtlr.model import mtlr
 from sota.mtlr.utility import make_mtlr_prediction, train_mtlr_model
 from utility.survival import convert_to_structured, make_time_bins, preprocess_data
-import torch
-import random
 from scipy.interpolate import interp1d
 from tools.data_loader import get_data_loader
 from SurvivalEVAL.Evaluator import LifelinesEvaluator
 from SurvivalEVAL.Evaluations.util import KaplanMeier
-from utility.config import load_config
 from sksurv.linear_model import CoxPHSurvivalAnalysis
 from sksurv.ensemble import RandomSurvivalForest
 from sota.mensa.model import MENSA

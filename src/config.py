@@ -1,5 +1,4 @@
 from pathlib import Path
-import numpy as np
 
 # Directories
 ROOT_DIR = Path(__file__).absolute().parent.parent
@@ -12,7 +11,6 @@ PLOTS_DIR = Path.joinpath(ROOT_DIR, 'plots')
 MISC_DIR = Path.joinpath(ROOT_DIR, 'misc')
 HIERARCH_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'hierarch')
 MENSA_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mensa')
-MCD_CONFIGS_DIR = Path.joinpath(CONFIGS_DIR, 'mcd')
 
 PATIENT_COLS = ['PSCID', 'Visit Label', 'Diagnosis', 'Age', 'Sex', 'Handedness',
                 'MedicalExamination_Riluzole', 'YearsEd', 'SymptomOnset_Date',
