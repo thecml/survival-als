@@ -2,6 +2,7 @@ import os
 import torch
 import random
 from SurvivalEVAL import mean_error
+from SurvivalEVAL.Evaluations.util import predict_median_survival_time
 import pandas as pd
 import numpy as np
 import config as cfg
@@ -17,6 +18,8 @@ from SurvivalEVAL.Evaluations.util import KaplanMeier
 from sksurv.linear_model import CoxPHSurvivalAnalysis
 from sksurv.ensemble import RandomSurvivalForest
 from sota.mensa.model import MENSA
+
+from sksurv.metrics import concordance_index_ipcw
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -215,19 +218,28 @@ if __name__ == "__main__":
         
             # Evaluate predictions each event
             result_cols = ["DatasetName", "ModelName", "Seed", "EventId",
-                        "CI", "IBS", "MAEM", "MAEKM", "DCalib"]
+                           "CIH", "CIU", "IBS", "MAEM", "MAEKM", "DCalib"]
             for event_id, surv_pred in enumerate(all_preds):
                 y_train_time = train_dict['T'][:,event_id].cpu().numpy()
                 y_train_event = train_dict['E'][:,event_id].cpu().numpy()
                 y_test_time = test_dict['T'][:,event_id].cpu().numpy()
                 y_test_event = test_dict['E'][:,event_id].cpu().numpy()
+                y_train_structured = convert_to_structured(y_train_time, y_train_event)
+                y_test_structured = convert_to_structured(y_test_time, y_test_event)
+                
                 lifelines_eval = LifelinesEvaluator(surv_pred.T, y_test_time, y_test_event,
                                                     y_train_time, y_train_event)
-            
+                
+                # Calculate lifelines metrics
+                ci_h = lifelines_eval.concordance()[0]
                 mae_margin = lifelines_eval.mae(method="Margin")
-                ci = lifelines_eval.concordance()[0]
                 ibs = lifelines_eval.integrated_brier_score(num_points=10)
                 d_calib = lifelines_eval.d_calibration()[0]
+                
+                # Calculate Uno's CI
+                predicted_times = lifelines_eval.predict_time_from_curve(predict_median_survival_time)
+                risks = -1 * predicted_times
+                ci_u = concordance_index_ipcw(y_train_structured, y_test_structured, risks)[0]
                 
                 # Calculate KM estimate
                 km_model = KaplanMeier(y_train_time, y_train_event)
@@ -238,7 +250,7 @@ if __name__ == "__main__":
                                     train_event_times=y_train_time, train_event_indicators=y_train_event,
                                     method='Margin')
                 
-                metrics = [ci, ibs, mae_margin, km_mae, d_calib]
+                metrics = [ci_h, ci_u, ibs, mae_margin, km_mae, d_calib]
                 print(f'{model_name} E{event_id+1}: ' + str(metrics))
                 res_sr = pd.Series([DATASET_NAME, model_name, seed, event_id+1] + metrics,
                                     index=result_cols)

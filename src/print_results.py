@@ -15,7 +15,7 @@ if __name__ == "__main__":
     
     dataset_names = ["proact"]
     model_names = ['coxph', 'rsf', 'deepsurv', 'mtlr', 'mensa']
-    event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking']
+    event_names = ['Speech', 'Swallowing', 'Handwriting', 'Walking', 'Dyspnea']
     metric_names = ["CI", "IBS", "MAEM", "DCalib"]
     
     for dataset_name in dataset_names:
