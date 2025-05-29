@@ -239,7 +239,8 @@ if __name__ == "__main__":
                 # Calculate Uno's CI
                 predicted_times = lifelines_eval.predict_time_from_curve(predict_median_survival_time)
                 risks = -1 * predicted_times
-                ci_u = concordance_index_ipcw(y_train_structured, y_test_structured, risks)[0]
+                tau = y_train_structured['time'].max()
+                ci_u = concordance_index_ipcw(y_train_structured, y_test_structured, risks, tau=tau)[0]
                 
                 # Calculate KM estimate
                 km_model = KaplanMeier(y_train_time, y_train_event)
